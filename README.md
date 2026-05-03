@@ -1,71 +1,70 @@
-# SmartCalc 🚀
+# SmartCalc
 
-A modern, minimal, and fully responsive calculator app built with Flutter. SmartCalc combines a clean user interface with robust mathematical logic and descriptive error handling to provide a seamless user experience.
+SmartCalc is a professional-grade, minimal calculator application developed using the Flutter framework. It emphasizes clean architecture, responsive design across diverse device form factors, and robust mathematical evaluation logic.
 
-## ✨ Features
+## Core Features
 
--   **Modern & Minimal UI**: A clean design inspired by modern mobile interfaces.
--   **Fully Responsive**: The layout adapts perfectly to any screen size (Phones, Tablets) using dynamic scaling.
--   **Robust Logic**: Powered by `math_expressions` for accurate calculations and operator precedence.
--   **Descriptive Error Handling**: Instead of a generic "Error", SmartCalc tells you what went wrong (e.g., "Cannot divide by zero", "Invalid format").
--   **Auto-Evaluation**: See your result in real-time as you type your expression.
--   **Clean Architecture**: Organized into logical layers (Logic, Presentation, Controller) for better maintainability.
--   **Unit Tested**: Core logic is covered by comprehensive unit tests to ensure reliability.
+- **Modern Minimalist UI**: Designed for clarity and ease of use, following contemporary interface standards.
+- **Full Responsiveness**: Implements dynamic scaling to ensure a consistent user experience on smartphones and tablets.
+- **Advanced Calculation Logic**: Utilizes the `math_expressions` library to ensure high precision and proper operator precedence.
+- **Descriptive Error Feedback**: Replaces generic error messages with specific diagnostic feedback (e.g., "Cannot divide by zero", "Invalid format").
+- **Real-time Auto-Evaluation**: Provides immediate results as mathematical expressions are entered.
+- **Layered Architecture**: Adheres to Clean Architecture principles, separating logic, state management, and presentation layers for enhanced maintainability.
+- **Comprehensive Unit Testing**: Core mathematical functions are validated through rigorous unit tests to ensure production-level reliability.
 
-## 🛠️ Tech Stack
+## Technical Stack
 
--   **Framework**: [Flutter](https://flutter.dev/)
--   **State Management**: [Provider](https://pub.dev/packages/provider)
--   **Math Parsing**: [math_expressions](https://pub.dev/packages/math_expressions)
--   **Testing**: Flutter Unit Testing
+- **Framework**: Flutter
+- **State Management**: Provider
+- **Mathematical Parsing**: math_expressions
+- **Testing Suite**: Flutter Test (Unit Testing)
 
-## 📱 UI Layout
+## UI Layout and Ergonomics
 
--   **Top Row Controls**: Quick access to `Clear (C)` and `Backspace (⌫)` above the number pad.
--   **Optimized Grid**: Large `0` button and a tall `+` button for ergonomic use.
--   **Smart Display**: Dynamic font scaling ensures that long expressions and error messages never overflow the screen.
+- **Control Hierarchy**: Functional controls such as Clear (C) and Backspace are positioned prominently for efficient correction.
+- **Optimized Input Grid**: Features an ergonomically placed large '0' button and a vertical '+' button to facilitate rapid data entry.
+- **Dynamic Display**: Employs adaptive font scaling to prevent UI overflow during long expressions or detailed error messages.
 
-## 🚀 Getting Started
+## Installation and Setup
 
 ### Prerequisites
 
--   Flutter SDK installed on your machine.
--   Android Studio / VS Code with Flutter extension.
+- Flutter SDK
+- Android Studio / VS Code with Flutter extensions
 
-### Installation
+### Setup Instructions
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/abdelrahmant-9/SmartCalc.git
-    ```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/abdelrahmant-9/SmartCalc.git
+   ```
 
-2.  **Navigate to the project directory:**
-    ```bash
-    cd SmartCalc
-    ```
+2. **Navigate to the directory:**
+   ```bash
+   cd SmartCalc
+   ```
 
-3.  **Install dependencies:**
-    ```bash
-    flutter pub get
-    ```
+3. **Retrieve dependencies:**
+   ```bash
+   flutter pub get
+   ```
 
-4.  **Run the app:**
-    ```bash
-    flutter run
-    ```
+4. **Execute the application:**
+   ```bash
+   flutter run
+   ```
 
-5.  **Run tests:**
-    ```bash
-    flutter test
-    ```
+5. **Execute tests:**
+   ```bash
+   flutter test
+   ```
 
-## 🛡️ Error Handling
+## Error Management Strategy
 
-SmartCalc handles various edge cases gracefully:
--   **Division by zero**: Displays "Cannot divide by zero".
--   **Incomplete expressions**: Displays "Incomplete expression" (e.g., pressing `=` on `5+`).
--   **Invalid formats**: Catching sequences like `5++5` or `*5`.
--   **Auto-recovery**: Typing a new number after an error automatically clears the screen.
+SmartCalc implements a proactive error management system to handle edge cases gracefully:
+- **Division by Zero**: Explicitly identified and reported as "Cannot divide by zero".
+- **Syntactical Validation**: Catches incomplete or invalid expressions (e.g., trailing operators or consecutive invalid symbols).
+- **Auto-State Reset**: Automatically clears the error state upon new numeric input to maintain workflow continuity.
 
 ---
-Built with ❤️ by [Abdelrahman](https://github.com/abdelrahmant-9)
+Developed by [Abdelrahman](https://github.com/abdelrahmant-9)
