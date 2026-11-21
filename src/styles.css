@@ -293,3 +293,5 @@ button.booking-row:hover { border-color: var(--plum); }
 }
 .row select, .row input { width: auto; }
 .dl dd.mono { text-align: right; }
+.table td { white-space: nowrap; }
+.booking-names { white-space: normal; }
