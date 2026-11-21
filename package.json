@@ -1,0 +1,76 @@
+{
+  "name": "heaven-manager",
+  "version": "1.0.0",
+  "description": "نظام إدارة حجوزات وحسابات Heaven - لوكيشن تصوير العرائس",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "build": "vite build",
+    "start": "vite build && electron .",
+    "dist:win": "vite build && electron-builder --win",
+    "dist:mac": "vite build && electron-builder --mac",
+    "test": "node --test test/*.test.cjs"
+  },
+  "author": "Heaven",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@fontsource/cairo": "^5.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^10.0.7",
+    "cross-env": "^10.1.0",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.8",
+    "wait-on": "^9.5.1"
+  },
+  "productName": "Heaven Manager",
+  "private": true,
+  "build": {
+    "appId": "com.heaven.manager",
+    "productName": "Heaven Manager",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Heaven Manager"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.business",
+      "identity": "-",
+      "hardenedRuntime": false
+    },
+    "publish": null
+  }
+}

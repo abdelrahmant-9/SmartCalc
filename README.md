@@ -1,70 +1,92 @@
-# SmartCalc
+# Heaven Manager
 
-SmartCalc is a professional-grade, minimal calculator application developed using the Flutter framework. It emphasizes clean architecture, responsive design across diverse device form factors, and robust mathematical evaluation logic.
+برنامج سطح مكتب (Windows و Mac) لإدارة **Heaven** — لوكيشن تصوير العرائس:
+حجوزات العرائس، تذاكر الدخول، الكافيه، وكل الحسابات الداخلة والطالعة.
 
-## Core Features
+- يشتغل **أوفلاين** بالكامل — البيانات محفوظة على الجهاز.
+- لما النت يكون موجود، **بيتزامن أونلاين** بين كل الأجهزة (Supabase مجاني).
+- واجهتين: **المدير** و**الموظف**.
 
-- **Modern Minimalist UI**: Designed for clarity and ease of use, following contemporary interface standards.
-- **Full Responsiveness**: Implements dynamic scaling to ensure a consistent user experience on smartphones and tablets.
-- **Advanced Calculation Logic**: Utilizes the `math_expressions` library to ensure high precision and proper operator precedence.
-- **Descriptive Error Feedback**: Replaces generic error messages with specific diagnostic feedback (e.g., "Cannot divide by zero", "Invalid format").
-- **Real-time Auto-Evaluation**: Provides immediate results as mathematical expressions are entered.
-- **Layered Architecture**: Adheres to Clean Architecture principles, separating logic, state management, and presentation layers for enhanced maintainability.
-- **Comprehensive Unit Testing**: Core mathematical functions are validated through rigorous unit tests to ensure production-level reliability.
+## المميزات
 
-## Technical Stack
+| القسم | المدير | الموظف |
+|---|---|---|
+| الحجوزات (تقويم، باكدجات، إضافات، عربون ومتبقي، إيصال) | ✔ | ✔ |
+| تعديل سعر الحجز / عمل خصم | ✔ | لو المدير سمح |
+| تذاكر الدخول (بيع وطباعة) | ✔ | ✔ |
+| تعديل أسعار التذاكر | ✔ | ✖ |
+| الكافيه: كاشير بمنيو + حسابات الكافيه (إيرادات ومصروفات) | ✔ | ✔ |
+| تعديل المنيو والأسعار | ✔ | ✖ |
+| تسجيل مصروفات | ✔ | لو المدير سمح |
+| الحسابات الكاملة والأرباح والتقارير وتصدير Excel | ✔ | ✖ (يشوف عملياته بس للتقفيل) |
+| حذف أي عملية | ✔ | ✖ |
+| المستخدمين، الصلاحيات، المزامنة، النسخ الاحتياطي | ✔ | ✖ |
 
-- **Framework**: Flutter
-- **State Management**: Provider
-- **Mathematical Parsing**: math_expressions
-- **Testing Suite**: Flutter Test (Unit Testing)
+**طرق تسعير الحجز (يحددها المدير من الإعدادات ← الباكدجات):**
+- **سعر ثابت**: باكدج بمدة وسعر محددين (مثلاً سيشن ساعتين = 2500).
+- **بالساعة**: سعر الساعة × عدد الساعات.
+- **سعر يدوي**: الموظف يكتب السعر المتفق عليه.
+- بالإضافة لـ **إضافات** (ساعة إضافية، الروم…) و**خصم** و**تعديل السعر النهائي** حسب صلاحيات الموظف.
 
-## UI Layout and Ergonomics
+## التشغيل لأول مرة
 
-- **Control Hierarchy**: Functional controls such as Clear (C) and Backspace are positioned prominently for efficient correction.
-- **Optimized Input Grid**: Features an ergonomically placed large '0' button and a vertical '+' button to facilitate rapid data entry.
-- **Dynamic Display**: Employs adaptive font scaling to prevent UI overflow during long expressions or detailed error messages.
+1. نزّل البرنامج من صفحة **Actions** على GitHub (آخر Build ناجح ← Artifacts):
+   - `Heaven-Manager-Windows` ← ملف `.exe` للتسطيب على ويندوز.
+   - `Heaven-Manager-Mac` ← ملف `.dmg` للماك.
+2. ادخل بـ `admin` / `admin` وغيّر كلمة المرور فوراً من **حسابي**.
+3. من **الإعدادات** ظبط الباكدجات وأسعار التذاكر والمنيو، واعمل حسابات للموظفين.
 
-## Installation and Setup
+> **على الماك:** لأن البرنامج غير موقّع من Apple، أول مرة اعمل كليك يمين على البرنامج ← Open.
+> لو ظهرت رسالة إن البرنامج "تالف"، افتح Terminal واكتب:
+> `xattr -cr "/Applications/Heaven Manager.app"`
 
-### Prerequisites
+## تفعيل المزامنة الأونلاين (مرة واحدة)
 
-- Flutter SDK
-- Android Studio / VS Code with Flutter extensions
+1. اعمل حساب مجاني على [supabase.com](https://supabase.com) واعمل مشروع جديد.
+2. من **SQL Editor** الصق محتوى الملف [`supabase/schema.sql`](supabase/schema.sql) (أو من داخل البرنامج: الإعدادات ← المزامنة ← زرار "نسخ كود SQL") واضغط **Run**.
+3. من **Authentication ← Users ← Add user** اعمل إيميل وكلمة مرور للمكان (فعّل Auto Confirm).
+4. من **Project Settings ← API** انسخ `Project URL` و `anon public key`.
+5. على **كل جهاز**: الإعدادات ← المزامنة الأونلاين ← اكتب البيانات ← حفظ واتصال.
 
-### Setup Instructions
+كل جهاز بيشتغل عادي من غير نت، وأول ما النت يرجع بيرفع التعديلات ويستقبل تعديلات باقي الأجهزة تلقائياً (كل 20 ثانية).
+لو نفس السجل اتعدل على جهازين، **آخر تعديل هو اللي بيتحفظ**.
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/abdelrahmant-9/SmartCalc.git
-   ```
+## النسخ الاحتياطي
 
-2. **Navigate to the directory:**
-   ```bash
-   cd SmartCalc
-   ```
-
-3. **Retrieve dependencies:**
-   ```bash
-   flutter pub get
-   ```
-
-4. **Execute the application:**
-   ```bash
-   flutter run
-   ```
-
-5. **Execute tests:**
-   ```bash
-   flutter test
-   ```
-
-## Error Management Strategy
-
-SmartCalc implements a proactive error management system to handle edge cases gracefully:
-- **Division by Zero**: Explicitly identified and reported as "Cannot divide by zero".
-- **Syntactical Validation**: Catches incomplete or invalid expressions (e.g., trailing operators or consecutive invalid symbols).
-- **Auto-State Reset**: Automatically clears the error state upon new numeric input to maintain workflow continuity.
+الإعدادات ← النسخ الاحتياطي ← حفظ نسخة احتياطية (ملف JSON).
+يُنصح بعمل نسخة أسبوعياً على فلاشة أو Google Drive حتى لو المزامنة شغالة.
 
 ---
-Developed by [Abdelrahman](https://github.com/abdelrahmant-9)
+
+## للمطورين
+
+```bash
+npm install
+npm run dev        # تشغيل للتطوير (Vite + Electron)
+npm test           # اختبارات قاعدة البيانات والصلاحيات والمزامنة
+npm run dist:win   # بناء ملف التسطيب لويندوز (على جهاز ويندوز)
+npm run dist:mac   # بناء ملف التسطيب للماك (على جهاز ماك)
+```
+
+ملفات التسطيب بتتبني تلقائياً على GitHub Actions مع كل push (`.github/workflows/build.yml`).
+
+**التقنيات:** Electron + React (Vite) + SQLite المدمج في Electron (`node:sqlite`) — من غير أي مكتبات native، فالبناء لويندوز وماك سهل.
+
+**هيكل المشروع:**
+
+```
+electron/
+  main.cjs      نافذة البرنامج وقنوات IPC
+  store.cjs     قاعدة البيانات المحلية (SQLite) — كل سجل JSON مع updated_at للمزامنة
+  service.cjs   تسجيل الدخول والصلاحيات والبيانات الافتراضية
+  sync.cjs      المزامنة مع Supabase (رفع واستقبال، آخر تعديل يكسب)
+src/
+  pages/        الشاشات: الرئيسية، الحجوزات، التذاكر، الكافيه، الحسابات، الإعدادات
+  lib/          الحسابات والتنسيق والطباعة
+supabase/schema.sql   جدول السيرفر ودالة الرفع
+test/                 اختبارات
+```
+
+البيانات المحلية محفوظة في:
+- Windows: `%APPDATA%\Heaven Manager\heaven.db`
+- Mac: `~/Library/Application Support/Heaven Manager/heaven.db`
