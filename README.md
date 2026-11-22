@@ -30,9 +30,9 @@
 
 ## التشغيل لأول مرة
 
-1. نزّل البرنامج من صفحة **Actions** على GitHub (آخر Build ناجح ← Artifacts):
-   - `Heaven-Manager-Windows` ← ملف `.exe` للتسطيب على ويندوز.
-   - `Heaven-Manager-Mac` ← ملف `.dmg` للماك.
+1. ابني ملف التسطيب على الجهاز نفسه (محتاج Node.js مثبت):
+   - على الماك: `npm install` ثم `npm run dist:mac` ← ملف `.dmg` في فولدر `release`.
+   - على ويندوز: `npm install` ثم `npm run dist:win` ← ملف `.exe` في فولدر `release`.
 2. ادخل بـ `admin` / `admin` وغيّر كلمة المرور فوراً من **حسابي**.
 3. من **الإعدادات** ظبط الباكدجات وأسعار التذاكر والمنيو، واعمل حسابات للموظفين.
 
@@ -68,7 +68,7 @@ npm run dist:win   # بناء ملف التسطيب لويندوز (على جه�
 npm run dist:mac   # بناء ملف التسطيب للماك (على جهاز ماك)
 ```
 
-ملفات التسطيب بتتبني تلقائياً على GitHub Actions مع كل push (`.github/workflows/build.yml`).
+ملفات التسطيب بتتبني على جهاز بنفس نظام التشغيل (ماك للماك، ويندوز للويندوز).
 
 **التقنيات:** Electron + React (Vite) + SQLite المدمج في Electron (`node:sqlite`) — من غير أي مكتبات native، فالبناء لويندوز وماك سهل.
 
