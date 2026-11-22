@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../lib/context.jsx';
+import { Notice } from '../components/ui.jsx';
 import logo from '../assets/logo.png';
 
 export default function Login() {
@@ -16,23 +17,29 @@ export default function Login() {
   };
 
   return (
-    <div className="login-page">
-      <form className="login-card" onSubmit={submit}>
-        <img src={logo} alt="Heaven" className="login-logo" />
-        <h1>Heaven Manager</h1>
-        <p className="muted">نظام الحجوزات والحسابات</p>
-        <label className="field">
-          <span className="field-label">اسم المستخدم</span>
-          <input autoFocus value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
-        </label>
-        <label className="field">
-          <span className="field-label">كلمة المرور</span>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-        </label>
-        {error && <div className="alert alert-danger">{error}</div>}
-        <button className="btn btn-primary btn-block btn-lg" disabled={busy || !username || !password}>دخول</button>
-        <p className="muted small">أول مرة؟ ادخل بـ admin / admin ثم غيّر كلمة المرور.</p>
-      </form>
+    <div className="login">
+      <div className="login-form">
+        <form onSubmit={submit}>
+          <h1>تسجيل الدخول</h1>
+          <p className="sub">ادخل باسم المستخدم الخاص بك.</p>
+          <label className="field">
+            <span className="field-label">اسم المستخدم</span>
+            <input autoFocus dir="ltr" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+          </label>
+          <label className="field">
+            <span className="field-label">كلمة المرور</span>
+            <input type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          </label>
+          {error && <Notice tone="danger">{error}</Notice>}
+          <button className="btn btn-primary btn-lg btn-block" disabled={busy || !username || !password}>دخول</button>
+          <p className="login-foot">Heaven Manager</p>
+        </form>
+      </div>
+      <div className="login-art" aria-hidden="true">
+        <img src={logo} alt="" />
+        <div className="word">HEAVEN</div>
+        <div className="tagline">Lens &amp; Leaves · Capturing Beauty</div>
+      </div>
     </div>
   );
 }

@@ -23,6 +23,7 @@ function createWindow() {
     backgroundColor: '#F6F0EB',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     autoHideMenuBar: true,
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 16 } } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -30,6 +31,8 @@ function createWindow() {
       sandbox: true,
     },
   });
+  win.on('enter-full-screen', () => send('window:fullscreen', true));
+  win.on('leave-full-screen', () => send('window:fullscreen', false));
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url);
     return { action: 'deny' };

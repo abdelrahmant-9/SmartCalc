@@ -1,7 +1,46 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { Inbox, Info, TriangleAlert, X } from 'lucide-react';
 import { BOOKING_STATUS } from '../lib/finance.js';
+import { num } from '../lib/format.js';
 
-export function Modal({ title, onClose, children, footer, wide }) {
+// Banner (e.g. "change default password") shown at the top of every page.
+export const BannerCtx = createContext(null);
+
+export function Page({ title, sub, actions, tabs, children }) {
+  const banner = useContext(BannerCtx);
+  return (
+    <>
+      <header className="page-head">
+        <div>
+          <h1>{title}</h1>
+          {sub && <div className="sub">{sub}</div>}
+        </div>
+        {actions && <div className="page-actions">{actions}</div>}
+      </header>
+      {tabs}
+      <div className="content">
+        {banner}
+        {children}
+      </div>
+    </>
+  );
+}
+
+export function Panel({ title, meta, actions, children, body = true, className = '' }) {
+  return (
+    <section className={`panel ${className}`}>
+      {(title || actions) && (
+        <div className="panel-head">
+          <h3>{title}{meta !== undefined && meta !== null && <span className="meta">{meta}</span>}</h3>
+          {actions && <div className="row">{actions}</div>}
+        </div>
+      )}
+      {body ? <div className="panel-body">{children}</div> : children}
+    </section>
+  );
+}
+
+export function Modal({ title, sub, onClose, children, footer, wide }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);
@@ -11,8 +50,11 @@ export function Modal({ title, onClose, children, footer, wide }) {
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
       <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-label={title}>
         <div className="modal-head">
-          <h3>{title}</h3>
-          <button className="icon-btn" onClick={onClose} aria-label="إغلاق">✕</button>
+          <div>
+            <h3>{title}</h3>
+            {sub && <div className="sub">{sub}</div>}
+          </div>
+          <button className="icon-btn" onClick={onClose} aria-label="إغلاق"><X /></button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
@@ -23,7 +65,7 @@ export function Modal({ title, onClose, children, footer, wide }) {
 
 export function Field({ label, children, hint, span }) {
   return (
-    <label className={`field ${span ? `span-${span}` : ''}`}>
+    <label className={`field ${span === 2 ? 'span-2' : span ? 'span-all' : ''}`}>
       <span className="field-label">{label}</span>
       {children}
       {hint && <span className="field-hint">{hint}</span>}
@@ -31,39 +73,35 @@ export function Field({ label, children, hint, span }) {
   );
 }
 
-export function Stat({ label, value, sub, tone }) {
-  return (
-    <div className={`stat ${tone ? `stat-${tone}` : ''}`}>
-      <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
-    </div>
-  );
+export function Metrics({ children, flat }) {
+  return <div className={`metrics ${flat ? 'flat' : ''}`}>{children}</div>;
 }
 
-export function Badge({ tone = 'info', children }) {
-  return <span className={`badge badge-${tone}`}>{children}</span>;
+// A money value is passed as `amount` so the currency renders quieter than the number.
+export function Metric({ label, value, amount, currency, sub, tone }) {
+  return (
+    <div className={`metric ${tone ? `tone-${tone}` : ''}`}>
+      <div className="metric-label">{label}</div>
+      <div className="metric-value">
+        {amount !== undefined ? <>{num(amount)}<small>{currency}</small></> : value}
+      </div>
+      {sub && <div className="metric-sub">{sub}</div>}
+    </div>
+  );
 }
 
 export function StatusBadge({ status }) {
   const s = BOOKING_STATUS[status] || BOOKING_STATUS.pending;
-  return <Badge tone={s.tone}>{s.label}</Badge>;
+  return <span className={`status status-${s.tone}`}>{s.label}</span>;
 }
 
-export function Empty({ children = 'لا توجد بيانات' }) {
-  return <div className="empty">{children}</div>;
+export function Empty({ icon: Icon = Inbox, children = 'لا توجد بيانات' }) {
+  return <div className="empty"><Icon />{children}</div>;
 }
 
-export function PageHead({ title, sub, children }) {
-  return (
-    <div className="page-head">
-      <div>
-        <h1>{title}</h1>
-        {sub && <p className="muted">{sub}</p>}
-      </div>
-      <div className="page-actions">{children}</div>
-    </div>
-  );
+export function Notice({ tone = 'info', icon, children }) {
+  const Icon = icon || (tone === 'info' ? Info : TriangleAlert);
+  return <div className={`notice notice-${tone}`}><Icon />{children}</div>;
 }
 
 export function Confirm({ title = 'تأكيد', message, onConfirm, onClose, danger = true, confirmText = 'تأكيد' }) {
@@ -71,6 +109,7 @@ export function Confirm({ title = 'تأكيد', message, onConfirm, onClose, dan
   return (
     <Modal title={title} onClose={onClose} footer={(
       <>
+        <span className="spacer" />
         <button className="btn" onClick={onClose}>إلغاء</button>
         <button
           className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`}
@@ -86,9 +125,21 @@ export function Confirm({ title = 'تأكيد', message, onConfirm, onClose, dan
 
 export function Tabs({ tabs, value, onChange }) {
   return (
-    <div className="tabs">
+    <nav className="tabs">
       {tabs.map((t) => (
         <button key={t.id} className={`tab ${value === t.id ? 'active' : ''}`} onClick={() => onChange(t.id)}>{t.label}</button>
+      ))}
+    </nav>
+  );
+}
+
+export function Segmented({ options, value, onChange }) {
+  return (
+    <div className="segmented">
+      {options.map(({ id, label, icon: Icon }) => (
+        <button key={id} className={value === id ? 'active' : ''} onClick={() => onChange(id)}>
+          {Icon && <Icon />}{label}
+        </button>
       ))}
     </div>
   );
@@ -109,5 +160,15 @@ export function MethodSelect({ value, onChange, methods }) {
     <select value={value} onChange={(e) => onChange(e.target.value)}>
       {(methods || ['كاش']).map((m) => <option key={m} value={m}>{m}</option>)}
     </select>
+  );
+}
+
+export function Switch({ label, desc, checked, onChange }) {
+  return (
+    <label className="switch">
+      <span className="switch-text"><strong>{label}</strong>{desc && <span>{desc}</span>}</span>
+      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="switch-track"><span className="switch-thumb" /></span>
+    </label>
   );
 }

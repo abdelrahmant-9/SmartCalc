@@ -31,7 +31,15 @@ export function startOfWeek(iso = today()) {
 }
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
-export const num = (v) => nf.format(Number(v) || 0);
+// A left-to-right mark keeps the minus sign in front of negative numbers inside Arabic text.
+export const num = (v) => {
+  const n = Number(v) || 0;
+  return n < 0 ? `\u200E-${nf.format(-n)}` : nf.format(n);
+};
+// Arabic-Indic (٠-٩) and Persian (۰-۹) digits -> 0-9, so numbers typed on an Arabic keyboard stay consistent.
+export function latin(v) {
+  return String(v ?? '').replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) & 0xf));
+}
 export const money = (v, currency = 'ج.م') => `${num(v)} ${currency}`;
 
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
