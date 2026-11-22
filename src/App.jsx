@@ -22,16 +22,16 @@ const NAV = [
     label: 'التشغيل',
     items: [
       { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
-      { id: 'bookings', label: 'الحجوزات', icon: CalendarHeart },
-      { id: 'tickets', label: 'تذاكر الدخول', icon: Ticket },
-      { id: 'cafe', label: 'الكافيه', icon: Coffee },
+      { id: 'bookings', label: 'الحجوزات', icon: CalendarHeart, perms: ['bookings.view'] },
+      { id: 'tickets', label: 'تذاكر الدخول', icon: Ticket, perms: ['tickets.sell'] },
+      { id: 'cafe', label: 'الكافيه', icon: Coffee, perms: ['cafe.sell', 'cafe.accounts'] },
     ],
   },
   {
     label: 'الإدارة',
     items: [
       { id: 'finance', label: 'الحسابات', icon: Wallet },
-      { id: 'settings', label: 'الإعدادات', icon: Settings, admin: true },
+      { id: 'settings', label: 'الإعدادات', icon: Settings, perms: ['settings.general', 'settings.catalog', 'settings.users', 'settings.roles', 'settings.sync', 'settings.backup', 'audit.view', 'dev.tools'] },
       { id: 'account', label: 'حسابي', icon: UserRound },
     ],
   },
@@ -40,12 +40,12 @@ const NAV = [
 const PAGES = { dashboard: Dashboard, bookings: Bookings, tickets: Tickets, cafe: Cafe, finance: Finance, settings: Settings_, account: Account };
 
 export default function App() {
-  const { user, ready, logout, isAdmin } = useApp();
+  const { user, ready, logout, canAny } = useApp();
   const [page, setPage] = useState('dashboard');
   const [demo, setDemo] = useState(false);
   useEffect(() => { api.appInfo().then((i) => { setDemo(!!i.demo); if (i.demo) document.title = 'Heaven Manager — نسخة تجريبية'; }).catch(() => {}); }, []);
 
-  const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.admin || isAdmin) }));
+  const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.perms || canAny(...i.perms)) })).filter((g) => g.items.length);
   const flat = groups.flatMap((g) => g.items);
 
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function App() {
           <img src={logo} alt="" />
           <div>
             <div className="brand-name">HEAVEN</div>
-            <div className="brand-sub">{isAdmin ? 'الإدارة' : 'الاستقبال'}</div>
+            <div className="brand-sub">{user.role_name}</div>
           </div>
         </div>
         {groups.map((g) => (
@@ -114,7 +114,7 @@ export default function App() {
             <div className="avatar">{(user.name || '?').trim().slice(0, 1)}</div>
             <div>
               <div className="user-name">{user.name}</div>
-              <div className="user-role">{isAdmin ? 'مدير' : 'موظف'}</div>
+              <div className="user-role">{user.role_name}</div>
             </div>
             <button className="icon-btn" title="تسجيل الخروج" onClick={logout}><LogOut /></button>
           </div>

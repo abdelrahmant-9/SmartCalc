@@ -9,7 +9,8 @@ import BarChart from '../components/BarChart.jsx';
 const DAYS_IN_CHART = 14;
 
 export default function Dashboard({ navigate }) {
-  const { isAdmin, currency, syncStatus } = useApp();
+  const { can, currency, syncStatus } = useApp();
+  const money_ = can('dashboard.financials');
   const t = today();
   const from = [startOfMonth(t), addDays(t, -(DAYS_IN_CHART - 1))].sort()[0];
   const rangeOpts = { field: 'date', from, to: t };
@@ -55,7 +56,7 @@ export default function Dashboard({ navigate }) {
         </>
       )}
     >
-      {isAdmin && syncStatus?.state === 'off' && (
+      {can('settings.sync') && syncStatus?.state === 'off' && (
         <Notice tone="info">
           البيانات محفوظة على هذا الجهاز فقط.
           <span className="spacer" />
@@ -66,7 +67,7 @@ export default function Dashboard({ navigate }) {
       <Metrics>
         <Metric label="حجوزات اليوم" value={todays.length} sub={`${upcoming.length} خلال 7 أيام`} />
         <Metric label="تذاكر اليوم" value={ticketsToday} />
-        {isAdmin ? (
+        {money_ ? (
           <>
             <Metric label="دخل اليوم" amount={todayS.in} currency={currency} sub={`مصروفات ${money(todayS.out, currency)}`} />
             <Metric label="صافي الشهر" amount={monthS.net} currency={currency} tone={monthS.net < 0 ? 'danger' : undefined} sub={`دخل ${money(monthS.in, currency)}`} />
@@ -76,7 +77,7 @@ export default function Dashboard({ navigate }) {
         )}
       </Metrics>
 
-      {isAdmin && (
+      {money_ && (
         <Panel title="الدخل اليومي" meta={`آخر ${DAYS_IN_CHART} يوم`} body={false}>
           <Metrics flat>
             {Object.entries(SECTION_LABELS).map(([k, label]) => {

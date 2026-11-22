@@ -11,7 +11,6 @@ fs.mkdirSync(dir, { recursive: true });
 const store = new Store(path.join(dir, 'heaven.db'));
 const svc = new Service(store);
 svc.login('admin', 'admin');
-svc.changePassword('admin', 'admin');
 
 const DAYS_BACK = 365;
 const DAYS_AHEAD = 60;
@@ -27,9 +26,10 @@ const int = (a, b) => a + Math.floor(rnd() * (b - a + 1));
 const t0 = Date.now();
 
 // ---- people ----
+const cashier = svc.put('roles', { name: 'كاشير', description: 'الكافيه والتذاكر بس', permissions: ['cafe.sell', 'tickets.sell', 'finance.expense'] });
 const staff = [
   svc.saveUser({ name: 'سارة محمود', username: 'sara', password: '1234', role: 'employee', phone: '01098765432' }),
-  svc.saveUser({ name: 'كريم حسن', username: 'karim', password: '1234', role: 'employee', phone: '01155554444' }),
+  svc.saveUser({ name: 'كريم حسن', username: 'karim', password: '1234', role: cashier.id, phone: '01155554444' }),
   svc.saveUser({ name: 'عبد الرحمن محمد عبد العزيز السيد الشرقاوي', username: 'abdo', password: '1234', role: 'employee' }),
   svc.saveUser({ name: 'مريم أشرف', username: 'mariam', password: '1234', role: 'admin' }),
 ];
@@ -129,8 +129,10 @@ for (let k = -DAYS_BACK; k <= DAYS_AHEAD; k++) {
 store.db.exec('COMMIT');
 // Demo data is local only: nothing here should be pushed to a sync server.
 store.db.exec('UPDATE records SET dirty = 0');
+// Demo passwords are known; do not nag about changing them.
+for (const u of store.list('users')) store.db.prepare('UPDATE records SET data = ? WHERE tbl = ? AND id = ?').run(JSON.stringify({ ...u, must_change_password: false }), 'users', u.id);
 
 const total = Object.values(count).reduce((a, b) => a + b, 0);
 console.log(`Demo data ready in ${dir}`);
 console.log(count, `total ${total} records in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-console.log('Logins: admin/admin · sara/1234 · karim/1234 · abdo/1234 · mariam/1234 (admin)');
+console.log('Logins: admin/admin (مدير) · developer/developer (مطور) · sara/1234 (موظف) · karim/1234 (كاشير) · abdo/1234 · mariam/1234 (مدير)');

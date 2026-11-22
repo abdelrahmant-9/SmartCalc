@@ -17,6 +17,11 @@ export const api = {
   put: (tbl, obj) => invoke('db:put', tbl, obj),
   remove: (tbl, id) => invoke('db:remove', tbl, id),
   saveUser: (u) => invoke('users:save', u),
+  catalogue: () => invoke('auth:catalogue'),
+  updateProfile: (d) => invoke('auth:updateProfile', d),
+  activity: (opts) => invoke('audit:list', opts),
+  devInfo: () => invoke('dev:info'),
+  devAction: (a) => invoke('dev:action', a),
 
   syncConfig: () => invoke('sync:getConfig'),
   setSyncConfig: (c) => invoke('sync:setConfig', c),

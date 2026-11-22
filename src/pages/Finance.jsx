@@ -33,7 +33,7 @@ export function RangePicker({ value, onChange }) {
 }
 
 export function TransactionForm({ initial, onClose, lockSection }) {
-  const { settings, isAdmin } = useApp();
+  const { settings, can } = useApp();
   const act = useAction();
   const cats = initial.type === 'in' ? settings.incomeCategories || [] : settings.expenseCategories || [];
   const [f, setF] = useState({
@@ -57,7 +57,7 @@ export function TransactionForm({ initial, onClose, lockSection }) {
     )}>
       <div className="form-grid">
         <Field label="المبلغ"><MoneyInput autoFocus value={f.amount} onChange={set('amount')} /></Field>
-        <Field label="التاريخ"><input type="date" value={f.date} onChange={set('date')} disabled={!isAdmin} /></Field>
+        <Field label="التاريخ"><input type="date" value={f.date} onChange={set('date')} disabled={!can('finance.backdate')} /></Field>
         {!lockSection && (
           <Field label="القسم">
             <Select value={f.section} onChange={set('section')} options={Object.entries(SECTION_LABELS).map(([value, label]) => ({ value, label }))} />
@@ -74,8 +74,8 @@ export function TransactionForm({ initial, onClose, lockSection }) {
 }
 
 export default function Finance() {
-  const { isAdmin } = useApp();
-  return isAdmin ? <AdminFinance /> : <EmployeeFinance />;
+  const { can } = useApp();
+  return can('finance.view_all') ? <AdminFinance /> : <EmployeeFinance />;
 }
 
 function useMovements(range) {
@@ -258,7 +258,7 @@ function EmployeeFinance() {
     <Page
       title="حساب اليوم"
       sub="العمليات المسجلة باسمك اليوم — للتسليم آخر الوردية"
-      actions={settings.allowEmployeeExpenses && <button className="btn btn-primary" onClick={() => setForm({ type: 'out' })}><Plus />مصروف</button>}
+      actions={can('finance.expense') && <button className="btn btn-primary" onClick={() => setForm({ type: 'out' })}><Plus />مصروف</button>}
     >
       <Metrics>
         <Metric label="المحصّل" amount={s.in} currency={currency} />

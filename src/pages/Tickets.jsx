@@ -7,7 +7,7 @@ import { printReceipt } from '../lib/print.js';
 import { Confirm, Empty, Metric, Metrics, MethodSelect, Page, Panel } from '../components/ui.jsx';
 
 export default function Tickets() {
-  const { settings, currency, isAdmin, user } = useApp();
+  const { settings, currency, can, user } = useApp();
   const act = useAction();
   const [types] = useData('ticket_types');
   const [day, setDay] = useState(today());
@@ -44,13 +44,13 @@ export default function Tickets() {
     } catch { /* toast already shown */ }
   };
 
-  const daySales = [...sales].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  const daySales = [...sales].filter((x) => can('tickets.history') || x.created_by === user.id).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   const dayCount = daySales.reduce((s, x) => s + (x.items || []).reduce((a, i) => a + (Number(i.qty) || 0), 0), 0);
   const dayTotal = daySales.reduce((s, x) => s + (Number(x.total) || 0), 0);
   const userName = (id) => users.find((u) => u.id === id)?.name || '';
 
   return (
-    <Page title="تذاكر الدخول" sub={isAdmin ? 'الأسعار من الإعدادات ← أسعار التذاكر' : null}>
+    <Page title="تذاكر الدخول" sub={can('settings.catalog') ? 'الأسعار من الإعدادات ← التذاكر' : null}>
       <div className="pos">
         <Panel title="بيع جديد">
           {active.length === 0 ? <Empty icon={Ticket}>لا توجد أنواع تذاكر مفعّلة</Empty> : (
@@ -104,7 +104,7 @@ export default function Tickets() {
         </Metrics>
         {daySales.length === 0 ? <Empty>لا توجد مبيعات في هذا اليوم</Empty> : (
           <table className="table">
-            <thead><tr><th>الوقت</th><th>التذاكر</th><th>الدفع</th><th>الموظف</th><th className="end">المبلغ</th>{isAdmin && <th />}</tr></thead>
+            <thead><tr><th>الوقت</th><th>التذاكر</th><th>الدفع</th><th>الموظف</th><th className="end">المبلغ</th>{can('tickets.delete') && <th />}</tr></thead>
             <tbody>
               {daySales.map((s) => (
                 <tr key={s.id}>
@@ -113,7 +113,7 @@ export default function Tickets() {
                   <td className="muted">{s.method}</td>
                   <td className="muted">{userName(s.created_by)}</td>
                   <td className="end num strong">{num(s.total)}</td>
-                  {isAdmin && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(s)}><Trash2 /></button></td>}
+                  {can('tickets.delete') && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(s)}><Trash2 /></button></td>}
                 </tr>
               ))}
             </tbody>

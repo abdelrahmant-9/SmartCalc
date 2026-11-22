@@ -176,11 +176,11 @@ export function MethodSelect({ value, onChange, methods }) {
   );
 }
 
-export function Switch({ label, desc, checked, onChange }) {
+export function Switch({ label, desc, checked, onChange, disabled }) {
   return (
-    <label className="switch">
+    <label className={`switch ${disabled ? 'disabled' : ''}`}>
       <span className="switch-text"><strong>{label}</strong>{desc && <span>{desc}</span>}</span>
-      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" checked={!!checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className="switch-track"><span className="switch-thumb" /></span>
     </label>
   );

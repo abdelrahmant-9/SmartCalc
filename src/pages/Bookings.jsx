@@ -19,7 +19,7 @@ export const bookingCode = (b) => (b?.id || '').replace(/^seed-/, '').slice(0, 6
 const couple = (b) => `${b.bride_name}${b.groom_name ? ` و${b.groom_name}` : ''}`;
 
 export default function Bookings() {
-  const { currency } = useApp();
+  const { currency, can } = useApp();
   const [view, setView] = useState('calendar');
   const [month, setMonth] = useState(startOfMonth());
   const [selectedDay, setSelectedDay] = useState(today());
@@ -60,7 +60,7 @@ export default function Bookings() {
           </div>
           <Select value={status} onChange={setStatus} aria-label="الحالة" options={[{ value: 'active', label: 'الحجوزات القائمة' }, { value: 'all', label: 'كل الحالات' }, ...Object.entries(BOOKING_STATUS).map(([value, v]) => ({ value, label: v.label }))]} />
           <Segmented value={view} onChange={setView} options={[{ id: 'calendar', label: 'تقويم', icon: CalendarDays }, { id: 'list', label: 'قائمة', icon: List }]} />
-          <button className="btn btn-primary" onClick={() => setEditing({ date: selectedDay })}><Plus />حجز جديد</button>
+          {can('bookings.create') && <button className="btn btn-primary" onClick={() => setEditing({ date: selectedDay })}><Plus />حجز جديد</button>}
         </>
       )}
     >
@@ -70,7 +70,7 @@ export default function Bookings() {
           <Panel
             className="day-panel" body={false}
             title={prettyDate(selectedDay)} meta={dayList.length ? `${dayList.length} حجز` : null}
-            actions={<button className="btn btn-sm" onClick={() => setEditing({ date: selectedDay })}><Plus />إضافة</button>}
+            actions={can('bookings.create') && <button className="btn btn-sm" onClick={() => setEditing({ date: selectedDay })}><Plus />إضافة</button>}
           >
             {dayList.length === 0 ? <Empty icon={CalendarHeart}>لا توجد حجوزات في هذا اليوم</Empty> : (
               <div className="agenda">
@@ -209,7 +209,7 @@ function BookingTable({ bookings, payments, currency, onOpen }) {
 }
 
 function BookingForm({ initial, allBookings, onClose, onSaved }) {
-  const { settings, isAdmin, currency, toast } = useApp();
+  const { settings, can, currency, toast } = useApp();
   const act = useAction();
   const [packages] = useData('packages');
   const [extrasList] = useData('extras');
@@ -230,8 +230,8 @@ function BookingForm({ initial, allBookings, onClose, onSaved }) {
     : null;
   const pkg = snapshot || packages.find((p) => p.id === f.package_id);
 
-  const canEditPrice = isAdmin || settings.allowEmployeePriceEdit;
-  const canDiscount = isAdmin || settings.allowEmployeeDiscount;
+  const canEditPrice = can('bookings.price_edit');
+  const canDiscount = can('bookings.discount');
   const price = computeBookingPrice({ pkg, hours: f.hours, extras: f.extras, customPrice: f.custom_price, discount: canDiscount ? f.discount : 0 });
   const finalTotal = canEditPrice && f.price_override !== '' && f.price_override !== null ? Number(f.price_override) : price.total;
 
@@ -249,13 +249,17 @@ function BookingForm({ initial, allBookings, onClose, onSaved }) {
   };
 
   const conflicts = allBookings.filter((b) => b.id !== f.id && !['cancelled', 'no_show'].includes(b.status) && overlaps(b, f));
+  const limitOn = !!settings.limitConcurrent;
   const maxConcurrent = Number(settings.maxConcurrentBookings) || 1;
+  const overLimit = limitOn && conflicts.length >= maxConcurrent;
+  const blocked = overLimit && settings.blockOverLimit && !can('bookings.override_limit');
   const visibleExtras = extrasList.filter((e) => e.active || f.extras.some((x) => x.id === e.id));
 
   const save = async () => {
     if (!f.bride_name.trim()) return toast('اسم العروسة مطلوب', 'error');
     if (!f.phone.trim()) return toast('رقم التليفون مطلوب', 'error');
     if (!pkg) return toast('اختر الباكدج', 'error');
+    if (blocked) return toast('التوقيت ده وصل للحد الأقصى من الحجوزات', 'error');
     const doc = {
       ...f,
       bride_name: f.bride_name.trim(), groom_name: f.groom_name.trim(), phone: latin(f.phone).trim(), phone2: latin(f.phone2).trim(),
@@ -310,10 +314,10 @@ function BookingForm({ initial, allBookings, onClose, onSaved }) {
             <Select value={f.status} onChange={(v) => set('status', v)} options={Object.entries(BOOKING_STATUS).map(([value, v]) => ({ value, label: v.label }))} />
           </Field>
         </div>
-        {conflicts.length >= maxConcurrent && (
+        {overLimit && (
           <div style={{ marginTop: 12 }}>
             <Notice tone="warn">
-              يوجد {conflicts.length} حجز في نفس التوقيت ({conflicts.map((c) => `${c.bride_name} ${time12(c.start_time)}`).join('، ')}). الحد المسموح {maxConcurrent}.
+              يوجد {conflicts.length} حجز في نفس التوقيت ({conflicts.map((c) => `${c.bride_name} ${time12(c.start_time)}`).join('، ')}). الحد المسموح {maxConcurrent}.{blocked ? ' لا يمكن الحفظ في هذا التوقيت.' : ''}
             </Notice>
           </div>
         )}
@@ -373,7 +377,7 @@ function BookingForm({ initial, allBookings, onClose, onSaved }) {
 }
 
 function BookingDetail({ booking: b, payments, onClose, onEdit }) {
-  const { settings, isAdmin, currency } = useApp();
+  const { settings, can, currency } = useApp();
   const act = useAction();
   const [pay, setPay] = useState({ amount: '', method: (settings.paymentMethods || ['كاش'])[0], note: '', refund: false });
   const [confirm, setConfirm] = useState(null);
@@ -420,10 +424,10 @@ function BookingDetail({ booking: b, payments, onClose, onEdit }) {
   return (
     <Modal wide title={couple(b)} sub={`${prettyDate(b.date)} · ${time12(b.start_time)} · ${bookingCode(b)}`} onClose={onClose} footer={(
       <>
-        {isAdmin && <button className="btn btn-danger-quiet" onClick={() => setConfirm('delete')}><Trash2 />حذف</button>}
+        {can('bookings.delete') && <button className="btn btn-danger-quiet" onClick={() => setConfirm('delete')}><Trash2 />حذف</button>}
         <span className="spacer" />
         <button className="btn" onClick={print}><Printer />إيصال</button>
-        <button className="btn btn-primary" onClick={onEdit}><Pencil />تعديل</button>
+        {can('bookings.edit') && <button className="btn btn-primary" onClick={onEdit}><Pencil />تعديل</button>}
       </>
     )}>
       <div className="detail">
@@ -438,11 +442,11 @@ function BookingDetail({ booking: b, payments, onClose, onEdit }) {
             {b.notes && (<><dt>ملاحظات</dt><dd>{b.notes}</dd></>)}
             <dt>سجّله</dt><dd>{userName(b.created_by) || '—'}</dd>
           </dl>
-          <div className="status-row">
+          {can('bookings.edit') && <div className="status-row">
             {Object.entries(BOOKING_STATUS).map(([k, v]) => (
               <button key={k} className={`chip ${b.status === k ? 'selected' : ''}`} onClick={() => b.status !== k && setStatus(k)}>{v.label}</button>
             ))}
-          </div>
+          </div>}
         </div>
         <div>
           <div className="balance">
@@ -461,20 +465,20 @@ function BookingDetail({ booking: b, payments, onClose, onEdit }) {
                     <td className="muted">{p.method}</td>
                     <td className="muted small">{userName(p.created_by)}</td>
                     <td className={`end num strong ${p.amount < 0 ? 'text-danger' : ''}`}>{num(p.amount)}</td>
-                    {isAdmin && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm({ payment: p })}><Trash2 /></button></td>}
+                    {can('payments.delete') && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm({ payment: p })}><Trash2 /></button></td>}
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-          <div className="pay-form">
+          {can('payments.create') && <div className="pay-form">
             <MoneyInput value={pay.amount} onChange={(v) => setPay({ ...pay, amount: v })} placeholder={remaining > 0 ? `المتبقي ${num(remaining)}` : 'المبلغ'} />
             <MethodSelect value={pay.method} onChange={(v) => setPay({ ...pay, method: v })} methods={settings.paymentMethods} />
             <input placeholder="ملاحظة" value={pay.note} onChange={(e) => setPay({ ...pay, note: e.target.value })} />
-            <label className="check"><input type="checkbox" checked={pay.refund} onChange={(e) => setPay({ ...pay, refund: e.target.checked })} />استرداد للعميل</label>
+            {can('payments.refund') && <label className="check"><input type="checkbox" checked={pay.refund} onChange={(e) => setPay({ ...pay, refund: e.target.checked })} />استرداد للعميل</label>}
             {remaining > 0 && <button className="btn btn-quiet" onClick={() => setPay({ ...pay, amount: remaining, refund: false })}>المتبقي بالكامل</button>}
             <button className="btn btn-primary" onClick={addPayment} disabled={!(Number(pay.amount) > 0)}>تسجيل الدفعة</button>
-          </div>
+          </div>}
         </div>
       </div>
       {confirm === 'delete' && (

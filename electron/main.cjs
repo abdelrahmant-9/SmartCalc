@@ -63,9 +63,34 @@ function registerIpc() {
   handle('db:put', (tbl, obj) => { const r = service.put(tbl, obj); sync.nudge(); return r; });
   handle('db:remove', (tbl, id) => { const r = service.remove(tbl, id); sync.nudge(); return r; });
   handle('users:save', (data) => { const r = service.saveUser(data); sync.nudge(); return r; });
+  handle('auth:catalogue', () => service.catalogue());
+  handle('auth:updateProfile', (d) => { const r = service.updateProfile(d); sync.nudge(); return r; });
+  handle('audit:list', (opts) => service.activity(opts));
 
-  handle('sync:getConfig', () => { service.requireAdmin(); return sync.publicConfig(); });
-  handle('sync:setConfig', (cfg) => { service.requireAdmin(); return sync.setConfig(cfg); });
+  // ---------- developer tools ----------
+  handle('dev:info', () => {
+    service.require('dev.tools');
+    const st = store.stats();
+    return {
+      version: app.getVersion(), electron: process.versions.electron, node: process.versions.node, chrome: process.versions.chrome,
+      sqlite: store.db.prepare('SELECT sqlite_version() AS v').get().v,
+      platform: `${process.platform} ${process.arch}`, dataPath: app.getPath('userData'),
+      deviceId: store.getKV('device_id'), syncCursor: store.getKV('sync_cursor', 0), sync: sync.getStatus(), ...st,
+    };
+  });
+  handle('dev:action', async (action) => {
+    service.require('dev.tools');
+    if (action === 'devtools') { win.webContents.openDevTools({ mode: 'detach' }); return 'تم فتح أدوات المطور'; }
+    if (action === 'resync-pull') { store.setKV('sync_cursor', 0); await sync.run(); return 'تمت إعادة سحب كل البيانات من السيرفر'; }
+    if (action === 'resync-push') { store.markAllDirty(); await sync.run(); return 'تم تجهيز كل السجلات لإعادة الرفع'; }
+    if (action === 'vacuum') { store.vacuum(); return 'تم ضغط قاعدة البيانات'; }
+    if (action === 'reload') { win.webContents.reload(); return 'reload'; }
+    if (action === 'open-data') { await shell.openPath(app.getPath('userData')); return 'تم فتح فولدر البيانات'; }
+    throw new Error('أمر غير معروف');
+  });
+
+  handle('sync:getConfig', () => { service.require('settings.sync'); return sync.publicConfig(); });
+  handle('sync:setConfig', (cfg) => { service.require('settings.sync'); return sync.setConfig(cfg); });
   handle('sync:status', () => sync.getStatus());
   handle('sync:now', async () => { await sync.run(); return sync.getStatus(); });
 
@@ -77,7 +102,7 @@ function registerIpc() {
   });
 
   handle('backup:export', async () => {
-    service.requireAdmin();
+    service.require('settings.backup');
     const stamp = new Date().toISOString().slice(0, 10);
     const r = await dialog.showSaveDialog(win, {
       defaultPath: `heaven-backup-${stamp}.json`, filters: [{ name: 'Backup', extensions: ['json'] }],
@@ -88,7 +113,7 @@ function registerIpc() {
   });
 
   handle('backup:import', async () => {
-    service.requireAdmin();
+    service.require('settings.backup');
     const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Backup', extensions: ['json'] }] });
     if (r.canceled || !r.filePaths[0]) return null;
     const parsed = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8'));

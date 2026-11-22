@@ -43,7 +43,8 @@ export function AppProvider({ children }) {
   const value = {
     user, setUser, ready, settings: settings || {}, version, refresh, toast,
     syncStatus, setSyncStatus, login, logout,
-    isAdmin: user?.role === 'admin',
+    can: (perm) => !!user?.permissions?.includes(perm),
+    canAny: (...perms) => perms.some((p) => user?.permissions?.includes(p)),
     currency: settings?.currency || 'ج.م',
   };
   return (
