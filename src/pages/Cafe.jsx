@@ -1,19 +1,31 @@
 import { useMemo, useState } from 'react';
+import { Coffee, Minus, Plus, Receipt, Trash2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAction, useApp, useData } from '../lib/context.jsx';
-import { money, nowTime, startOfMonth, time12, today } from '../lib/format.js';
+import { money, nowTime, num, startOfMonth, time12, today } from '../lib/format.js';
 import { printReceipt } from '../lib/print.js';
-import { Confirm, Empty, MoneyInput, MethodSelect, PageHead, Stat, Tabs } from '../components/ui.jsx';
-import { TransactionForm, RangePicker } from './Finance.jsx';
+import { Confirm, Empty, Metric, Metrics, MethodSelect, MoneyInput, Page, Panel, Tabs } from '../components/ui.jsx';
+import { RangePicker, TransactionForm } from './Finance.jsx';
 
 export default function Cafe() {
   const [tab, setTab] = useState('pos');
+  const { isAdmin, settings } = useApp();
+  const [form, setForm] = useState(null);
+  const canExpense = isAdmin || settings.allowEmployeeExpenses;
   return (
-    <>
-      <PageHead title="الكافيه" sub="الكاشير وحسابات الكافيه" />
-      <Tabs tabs={[{ id: 'pos', label: 'الكاشير' }, { id: 'accounts', label: 'حسابات الكافيه' }]} value={tab} onChange={setTab} />
+    <Page
+      title="الكافيه"
+      tabs={<Tabs tabs={[{ id: 'pos', label: 'الكاشير' }, { id: 'accounts', label: 'حسابات الكافيه' }]} value={tab} onChange={setTab} />}
+      actions={tab === 'accounts' && (
+        <>
+          {isAdmin && <button className="btn" onClick={() => setForm({ type: 'in', section: 'cafe' })}><Plus />إيراد</button>}
+          {canExpense && <button className="btn btn-primary" onClick={() => setForm({ type: 'out', section: 'cafe' })}><Plus />مصروف</button>}
+        </>
+      )}
+    >
       {tab === 'pos' ? <Pos /> : <CafeAccounts />}
-    </>
+      {form && <TransactionForm initial={form} lockSection onClose={() => setForm(null)} />}
+    </Page>
   );
 }
 
@@ -23,7 +35,7 @@ function Pos() {
   const [items] = useData('cafe_items');
   const [orders] = useData('cafe_orders', { field: 'date', equals: today() });
   const [users] = useData('users');
-  const [cat, setCat] = useState('الكل');
+  const [cat, setCat] = useState('all');
   const [cart, setCart] = useState([]);
   const [discount, setDiscount] = useState('');
   const [method, setMethod] = useState((settings.paymentMethods || ['كاش'])[0]);
@@ -32,8 +44,8 @@ function Pos() {
   const [confirm, setConfirm] = useState(null);
 
   const active = items.filter((i) => i.active);
-  const cats = ['الكل', ...new Set(active.map((i) => i.category || 'أخرى'))];
-  const shown = cat === 'الكل' ? active : active.filter((i) => (i.category || 'أخرى') === cat);
+  const cats = [...new Set(active.map((i) => i.category || 'أخرى'))];
+  const shown = cat === 'all' ? active : active.filter((i) => (i.category || 'أخرى') === cat);
   const canDiscount = isAdmin || settings.allowEmployeeDiscount;
 
   const add = (it) => setCart((c) => {
@@ -51,10 +63,10 @@ function Pos() {
     if (!cart.length) return;
     const number = orders.length + 1;
     try {
-      const o = await act(() => api.put('cafe_orders', { date: today(), time: nowTime(), number, items: cart, subtotal, discount: disc, total, method, note }), 'تم تسجيل الفاتورة');
+      const o = await act(() => api.put('cafe_orders', { date: today(), time: nowTime(), number, items: cart, subtotal, discount: disc, total, method, note }), `تم تسجيل الطلب #${number}`);
       if (printAfter) {
         printReceipt({
-          venueName: settings.venueName, title: `فاتورة كافيه #${number}`,
+          venueName: settings.venueName, title: `طلب كافيه #${number}`,
           lines: [['التاريخ', `${o.date} ${time12(o.time)}`], ['الموظف', user.name]],
           items: cart.map((i) => ({ name: i.name, qty: i.qty, total: money(i.price * i.qty, currency) })),
           totals: [
@@ -73,89 +85,89 @@ function Pos() {
 
   return (
     <>
-      <div className="pos-layout">
-        <div className="card">
-          <div className="chips">
-            {cats.map((c) => <button key={c} className={`chip ${cat === c ? 'selected' : ''}`} onClick={() => setCat(c)}>{c}</button>)}
-          </div>
-          {shown.length === 0 ? <Empty>لا توجد أصناف — أضفها من الإعدادات ← المنيو</Empty> : (
-            <div className="menu-grid">
+      <div className="pos">
+        <Panel
+          title="المنيو"
+          actions={cats.length > 1 && (
+            <div className="chips">
+              <button className={`chip ${cat === 'all' ? 'selected' : ''}`} onClick={() => setCat('all')}>الكل</button>
+              {cats.map((c) => <button key={c} className={`chip ${cat === c ? 'selected' : ''}`} onClick={() => setCat(c)}>{c}</button>)}
+            </div>
+          )}
+        >
+          {shown.length === 0 ? <Empty icon={Coffee}>لا توجد أصناف — تضاف من الإعدادات</Empty> : (
+            <div className="tiles">
               {shown.map((it) => {
                 const inCart = cart.find((x) => x.item_id === it.id);
                 return (
-                  <button key={it.id} className={`menu-item ${inCart ? 'selected' : ''}`} onClick={() => add(it)}>
-                    {inCart && <span className="menu-qty">{inCart.qty}</span>}
+                  <button key={it.id} className={`tile ${inCart ? 'selected' : ''}`} onClick={() => add(it)}>
+                    {inCart && <span className="count">{inCart.qty}</span>}
                     <strong>{it.name}</strong>
-                    <span>{money(it.price, currency)}</span>
+                    <span className="price num">{money(it.price, currency)}</span>
                   </button>
                 );
               })}
             </div>
           )}
-        </div>
-        <div className="card checkout">
-          <h3>الطلب الحالي</h3>
-          {cart.length === 0 ? <Empty>اضغط على الأصناف لإضافتها</Empty> : (
-            <div className="cart">
+        </Panel>
+        <Panel title="الطلب" meta={cart.length ? `${cart.reduce((s, i) => s + i.qty, 0)} صنف` : null} className="checkout"
+          actions={cart.length > 0 && <button className="btn btn-sm btn-quiet" onClick={() => setCart([])}>تفريغ</button>}>
+          {cart.length === 0 ? <Empty icon={Receipt}>اختر الأصناف من المنيو</Empty> : (
+            <div className="line-items">
               {cart.map((i) => (
-                <div key={i.item_id} className="cart-row">
-                  <span className="cart-name">{i.name}</span>
-                  <div className="stepper small">
-                    <button onClick={() => changeQty(i.item_id, -1)}>−</button>
-                    <span>{i.qty}</span>
-                    <button onClick={() => changeQty(i.item_id, 1)}>+</button>
+                <div key={i.item_id} className="line-item">
+                  <span>{i.name}</span>
+                  <div className="qty">
+                    <button onClick={() => changeQty(i.item_id, 1)} aria-label="زيادة"><Plus /></button>
+                    <span className="num">{i.qty}</span>
+                    <button onClick={() => changeQty(i.item_id, -1)} aria-label="نقص"><Minus /></button>
                   </div>
-                  <span className="cart-total">{money(i.price * i.qty, currency)}</span>
+                  <span className="amt num">{num(i.price * i.qty)}</span>
                 </div>
               ))}
             </div>
           )}
-          {canDiscount && <MoneyInput value={discount} onChange={setDiscount} placeholder="خصم (اختياري)" />}
-          <div className="checkout-total"><span>الإجمالي</span><strong>{money(total, currency)}</strong></div>
+          {canDiscount && cart.length > 0 && <MoneyInput value={discount} onChange={setDiscount} placeholder="خصم" />}
+          <div className="total-line"><span>الإجمالي</span><strong className="num">{money(total, currency)}</strong></div>
           <MethodSelect value={method} onChange={setMethod} methods={settings.paymentMethods} />
-          <input placeholder="ملاحظة / رقم الترابيزة" value={note} onChange={(e) => setNote(e.target.value)} />
-          <label className="check"><input type="checkbox" checked={printAfter} onChange={(e) => setPrintAfter(e.target.checked)} /> طباعة الفاتورة</label>
-          <div className="row">
-            <button className="btn" onClick={() => setCart([])} disabled={!cart.length}>مسح</button>
-            <button className="btn btn-primary btn-lg grow" disabled={!cart.length} onClick={sell}>تأكيد البيع</button>
-          </div>
-        </div>
+          <input placeholder="رقم الترابيزة أو ملاحظة" value={note} onChange={(e) => setNote(e.target.value)} />
+          <label className="check"><input type="checkbox" checked={printAfter} onChange={(e) => setPrintAfter(e.target.checked)} />طباعة الفاتورة</label>
+          <button className="btn btn-primary btn-lg btn-block" disabled={!cart.length} onClick={sell}>تأكيد الطلب</button>
+        </Panel>
       </div>
-      <div className="card">
-        <h3>فواتير اليوم ({todays.length}) — {money(todays.reduce((s, o) => s + (Number(o.total) || 0), 0), currency)}</h3>
-        {todays.length === 0 ? <Empty>لا توجد فواتير اليوم</Empty> : (
+      <Panel body={false} title="طلبات اليوم" meta={todays.length ? `${todays.length} · ${money(todays.reduce((s, o) => s + (Number(o.total) || 0), 0), currency)}` : null}>
+        {todays.length === 0 ? <Empty>لا توجد طلبات اليوم</Empty> : (
           <table className="table">
-            <thead><tr><th>#</th><th>الوقت</th><th>الأصناف</th><th>الإجمالي</th><th>الدفع</th><th>الموظف</th>{isAdmin && <th />}</tr></thead>
+            <thead><tr><th>#</th><th>الوقت</th><th>الأصناف</th><th>الدفع</th><th>الموظف</th><th className="end">المبلغ</th>{isAdmin && <th />}</tr></thead>
             <tbody>
               {todays.map((o) => (
                 <tr key={o.id}>
-                  <td>{o.number}</td>
-                  <td>{time12(o.time)}</td>
-                  <td>{(o.items || []).map((i) => `${i.name} × ${i.qty}`).join('، ')}</td>
-                  <td>{money(o.total, currency)}</td>
-                  <td>{o.method}</td>
-                  <td>{userName(o.created_by)}</td>
-                  {isAdmin && <td><button className="icon-btn" title="حذف" onClick={() => setConfirm(o)}>🗑</button></td>}
+                  <td className="num muted">{o.number}</td>
+                  <td className="num">{time12(o.time)}</td>
+                  <td>{(o.items || []).map((i) => `${i.name} × ${i.qty}`).join('، ')}{o.note ? <span className="muted"> · {o.note}</span> : ''}</td>
+                  <td className="muted">{o.method}</td>
+                  <td className="muted">{userName(o.created_by)}</td>
+                  <td className="end num strong">{num(o.total)}</td>
+                  {isAdmin && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(o)}><Trash2 /></button></td>}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </div>
-      {confirm && <Confirm message={`حذف فاتورة #${confirm.number} بقيمة ${money(confirm.total, currency)}؟`} onClose={() => setConfirm(null)} onConfirm={() => act(() => api.remove('cafe_orders', confirm.id), 'تم الحذف')} />}
+      </Panel>
+      {confirm && <Confirm title="حذف طلب" confirmText="حذف" message={`حذف الطلب #${confirm.number} بقيمة ${money(confirm.total, currency)}؟`} onClose={() => setConfirm(null)} onConfirm={() => act(() => api.remove('cafe_orders', confirm.id), 'تم الحذف')} />}
     </>
   );
 }
 
 function CafeAccounts() {
-  const { currency, isAdmin, settings } = useApp();
+  const { currency, isAdmin } = useApp();
   const act = useAction();
   const [range, setRange] = useState({ from: isAdmin ? startOfMonth() : today(), to: today() });
   const opts = { field: 'date', from: range.from, to: range.to };
   const [orders] = useData('cafe_orders', opts, [range.from, range.to]);
   const [txs] = useData('transactions', opts, [range.from, range.to]);
   const [users] = useData('users');
-  const [form, setForm] = useState(null);
   const [confirm, setConfirm] = useState(null);
 
   const cafeTx = txs.filter((t) => t.section === 'cafe');
@@ -170,59 +182,49 @@ function CafeAccounts() {
       const r = (m[i.name] ||= { name: i.name, qty: 0, total: 0 });
       r.qty += Number(i.qty) || 0; r.total += (Number(i.price) || 0) * (Number(i.qty) || 0);
     }
-    return Object.values(m).sort((a, b) => b.total - a.total).slice(0, 10);
+    return Object.values(m).sort((a, b) => b.total - a.total).slice(0, 8);
   }, [orders]);
 
   const userName = (id) => users.find((u) => u.id === id)?.name || '';
-  const canExpense = isAdmin || settings.allowEmployeeExpenses;
 
   return (
     <>
-      <div className="toolbar">
-        <RangePicker value={range} onChange={setRange} />
-        <span className="spacer" />
-        {isAdmin && <button className="btn" onClick={() => setForm({ type: 'in', section: 'cafe' })}>+ إيراد كافيه</button>}
-        {canExpense && <button className="btn btn-primary" onClick={() => setForm({ type: 'out', section: 'cafe' })}>+ مصروف كافيه</button>}
-      </div>
-      <div className="stats">
-        <Stat label="مبيعات الكاشير" value={money(sales, currency)} sub={`${orders.length} فاتورة`} />
-        <Stat label="إيرادات أخرى" value={money(otherIn, currency)} />
-        <Stat label="مصروفات الكافيه" value={money(out, currency)} tone="danger" />
-        <Stat label="صافي الكافيه" value={money(net, currency)} tone={net >= 0 ? 'ok' : 'danger'} />
-      </div>
-      <div className="two-col">
-        <div className="card">
-          <h3>حركات الكافيه (إيرادات ومصروفات يدوية)</h3>
-          {cafeTx.length === 0 ? <Empty /> : (
+      <RangePicker value={range} onChange={setRange} />
+      <Metrics>
+        <Metric label="مبيعات الكاشير" amount={sales} currency={currency} sub={`${orders.length} طلب`} />
+        <Metric label="إيرادات أخرى" amount={otherIn} currency={currency} />
+        <Metric label="مصروفات" amount={out} currency={currency} />
+        <Metric label="صافي الكافيه" amount={net} currency={currency} tone={net < 0 ? 'danger' : 'ok'} />
+      </Metrics>
+      <div className="cols-2">
+        <Panel body={false} title="المصروفات والإيرادات اليدوية" meta={cafeTx.length || null}>
+          {cafeTx.length === 0 ? <Empty>لا توجد حركات في هذه الفترة</Empty> : (
             <table className="table">
-              <thead><tr><th>التاريخ</th><th>النوع</th><th>البند</th><th>المبلغ</th><th>بواسطة</th>{isAdmin && <th />}</tr></thead>
+              <thead><tr><th>التاريخ</th><th>البند</th><th>بواسطة</th><th className="end">المبلغ</th>{isAdmin && <th />}</tr></thead>
               <tbody>
                 {[...cafeTx].sort((a, b) => b.date.localeCompare(a.date)).map((t) => (
                   <tr key={t.id}>
-                    <td>{t.date}</td>
-                    <td className={t.type === 'in' ? 'text-ok' : 'text-danger'}>{t.type === 'in' ? 'إيراد' : 'مصروف'}</td>
-                    <td>{t.category}{t.note ? ` — ${t.note}` : ''}</td>
-                    <td>{money(t.amount, currency)}</td>
-                    <td>{userName(t.created_by)}</td>
-                    {isAdmin && <td><button className="icon-btn" onClick={() => setConfirm(t)}>🗑</button></td>}
+                    <td className="num">{t.date}</td>
+                    <td><div className="cell-title">{t.category}</div>{t.note && <div className="cell-sub">{t.note}</div>}</td>
+                    <td className="muted">{userName(t.created_by)}</td>
+                    <td className={`end num strong ${t.type === 'in' ? 'text-ok' : ''}`}>{t.type === 'in' ? '+' : '−'}{num(t.amount)}</td>
+                    {isAdmin && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(t)}><Trash2 /></button></td>}
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-        </div>
-        <div className="card">
-          <h3>الأكثر مبيعاً</h3>
+        </Panel>
+        <Panel body={false} title="الأكثر مبيعاً">
           {bestSellers.length === 0 ? <Empty /> : (
             <table className="table compact">
-              <thead><tr><th>الصنف</th><th>الكمية</th><th>القيمة</th></tr></thead>
-              <tbody>{bestSellers.map((b) => <tr key={b.name}><td>{b.name}</td><td>{b.qty}</td><td>{money(b.total, currency)}</td></tr>)}</tbody>
+              <thead><tr><th>الصنف</th><th className="end">الكمية</th><th className="end">القيمة</th></tr></thead>
+              <tbody>{bestSellers.map((b) => <tr key={b.name}><td>{b.name}</td><td className="end num">{b.qty}</td><td className="end num">{num(b.total)}</td></tr>)}</tbody>
             </table>
           )}
-        </div>
+        </Panel>
       </div>
-      {form && <TransactionForm initial={form} lockSection onClose={() => setForm(null)} />}
-      {confirm && <Confirm message="حذف هذه الحركة؟" onClose={() => setConfirm(null)} onConfirm={() => act(() => api.remove('transactions', confirm.id), 'تم الحذف')} />}
+      {confirm && <Confirm title="حذف حركة" confirmText="حذف" message={`حذف "${confirm.category}" بقيمة ${money(confirm.amount, currency)}؟`} onClose={() => setConfirm(null)} onConfirm={() => act(() => api.remove('transactions', confirm.id), 'تم الحذف')} />}
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { CircleAlert, CircleCheck } from 'lucide-react';
 import { api } from './api.js';
 
 const AppCtx = createContext(null);
@@ -49,7 +50,11 @@ export function AppProvider({ children }) {
     <AppCtx.Provider value={value}>
       {children}
       <div className="toasts">
-        {toasts.map((t) => <div key={t.id} className={`toast toast-${t.type}`}>{t.message}</div>)}
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast-${t.type}`}>
+            {t.type === 'error' ? <CircleAlert /> : <CircleCheck />}{t.message}
+          </div>
+        ))}
       </div>
     </AppCtx.Provider>
   );

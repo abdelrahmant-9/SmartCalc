@@ -3,11 +3,11 @@ import { useApp } from '../lib/context.jsx';
 import { dateTime } from '../lib/format.js';
 
 const LABELS = {
-  off: ['غير مفعّلة', 'muted'],
+  off: ['على هذا الجهاز فقط', 'muted'],
   idle: ['متزامن', 'ok'],
-  syncing: ['جاري المزامنة…', 'info'],
-  offline: ['أوفلاين', 'warn'],
-  error: ['خطأ في المزامنة', 'danger'],
+  syncing: ['جاري المزامنة', 'info'],
+  offline: ['بدون إنترنت', 'warn'],
+  error: ['تعذّرت المزامنة', 'danger'],
 };
 
 export default function SyncIndicator() {
@@ -16,7 +16,7 @@ export default function SyncIndicator() {
   const [label, tone] = LABELS[s.state] || LABELS.off;
   const title = [
     s.lastSync ? `آخر مزامنة: ${dateTime(s.lastSync)}` : 'لم تتم مزامنة بعد',
-    s.pending ? `عمليات في الانتظار: ${s.pending}` : '',
+    s.pending ? `في الانتظار: ${s.pending}` : '',
     s.error || '',
   ].filter(Boolean).join('\n');
 
@@ -27,8 +27,8 @@ export default function SyncIndicator() {
       onClick={() => s.state !== 'off' && api.syncNow().then(setSyncStatus).catch(() => {})}
     >
       <span className="dot" />
-      <span>المزامنة: {label}</span>
-      {s.state !== 'off' && s.pending > 0 && <span className="sync-pending">{s.pending}</span>}
+      <span>{label}</span>
+      {s.state !== 'off' && s.pending > 0 && <span className="sync-pending">{s.pending} معلّق</span>}
     </button>
   );
 }

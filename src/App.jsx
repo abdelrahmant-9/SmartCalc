@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { CalendarHeart, Coffee, LayoutDashboard, LogOut, Settings, Ticket, UserRound, Wallet } from 'lucide-react';
 import { useApp } from './lib/context.jsx';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -6,70 +7,116 @@ import Bookings from './pages/Bookings.jsx';
 import Tickets from './pages/Tickets.jsx';
 import Cafe from './pages/Cafe.jsx';
 import Finance from './pages/Finance.jsx';
-import Settings from './pages/Settings.jsx';
+import Settings_ from './pages/Settings.jsx';
 import Account from './pages/Account.jsx';
 import SyncIndicator from './components/SyncIndicator.jsx';
+import { BannerCtx, Notice } from './components/ui.jsx';
 import logo from './assets/logo.png';
 
+const isMac = window.heaven?.platform === 'darwin';
+const MOD = isMac ? '⌘' : 'Ctrl+';
+
 const NAV = [
-  { id: 'dashboard', label: 'الرئيسية', icon: '◈', roles: ['admin', 'employee'] },
-  { id: 'bookings', label: 'الحجوزات', icon: '❀', roles: ['admin', 'employee'] },
-  { id: 'tickets', label: 'تذاكر الدخول', icon: '✦', roles: ['admin', 'employee'] },
-  { id: 'cafe', label: 'الكافيه', icon: '☕', roles: ['admin', 'employee'] },
-  { id: 'finance', label: 'الحسابات', icon: '◎', roles: ['admin', 'employee'] },
-  { id: 'settings', label: 'الإعدادات', icon: '⚙', roles: ['admin'] },
-  { id: 'account', label: 'حسابي', icon: '☺', roles: ['admin', 'employee'] },
+  {
+    label: 'التشغيل',
+    items: [
+      { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
+      { id: 'bookings', label: 'الحجوزات', icon: CalendarHeart },
+      { id: 'tickets', label: 'تذاكر الدخول', icon: Ticket },
+      { id: 'cafe', label: 'الكافيه', icon: Coffee },
+    ],
+  },
+  {
+    label: 'الإدارة',
+    items: [
+      { id: 'finance', label: 'الحسابات', icon: Wallet },
+      { id: 'settings', label: 'الإعدادات', icon: Settings, admin: true },
+      { id: 'account', label: 'حسابي', icon: UserRound },
+    ],
+  },
 ];
 
-const PAGES = { dashboard: Dashboard, bookings: Bookings, tickets: Tickets, cafe: Cafe, finance: Finance, settings: Settings, account: Account };
+const PAGES = { dashboard: Dashboard, bookings: Bookings, tickets: Tickets, cafe: Cafe, finance: Finance, settings: Settings_, account: Account };
 
 export default function App() {
   const { user, ready, logout, isAdmin } = useApp();
   const [page, setPage] = useState('dashboard');
 
-  if (!ready) return <div className="splash"><img src={logo} alt="Heaven" /></div>;
+  const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.admin || isAdmin) }));
+  const flat = groups.flatMap((g) => g.items);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('is-mac', isMac);
+  }, []);
+
+  // ⌘1…⌘7 / Ctrl+1…7 to jump between sections.
+  useEffect(() => {
+    if (!user) return undefined;
+    const onKey = (e) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      const n = Number(e.key);
+      if (n >= 1 && n <= flat.length) { e.preventDefault(); setPage(flat[n - 1].id); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [user, flat]);
+
+  if (!ready) return <div className="splash"><img src={logo} alt="" /></div>;
   if (!user) return <Login />;
 
-  const nav = NAV.filter((n) => n.roles.includes(user.role));
-  const current = nav.some((n) => n.id === page) ? page : 'dashboard';
+  const current = flat.some((n) => n.id === page) ? page : 'dashboard';
   const Page = PAGES[current];
+  const banner = user.must_change_password && current !== 'account' ? (
+    <Notice tone="warn">
+      كلمة المرور الحالية هي الافتراضية.
+      <span className="spacer" />
+      <button className="link" onClick={() => setPage('account')}>تغيير كلمة المرور</button>
+    </Notice>
+  ) : null;
 
+  let index = 0;
   return (
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <img src={logo} alt="Heaven" />
+          <img src={logo} alt="" />
           <div>
-            <div className="brand-name">Heaven</div>
-            <div className="brand-sub">{isAdmin ? 'لوحة المدير' : 'شاشة الموظف'}</div>
+            <div className="brand-name">HEAVEN</div>
+            <div className="brand-sub">{isAdmin ? 'الإدارة' : 'الاستقبال'}</div>
           </div>
         </div>
-        <nav>
-          {nav.map((n) => (
-            <button key={n.id} className={`nav-item ${current === n.id ? 'active' : ''}`} onClick={() => setPage(n.id)}>
-              <span className="nav-icon">{n.icon}</span>{n.label}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-foot">
+        {groups.map((g) => (
+          <div key={g.label} className="nav-group">
+            <div className="nav-label">{g.label}</div>
+            {g.items.map((n) => {
+              index += 1;
+              const Icon = n.icon;
+              return (
+                <button key={n.id} className={`nav-item ${current === n.id ? 'active' : ''}`} onClick={() => setPage(n.id)}>
+                  <Icon size={17} strokeWidth={1.75} />
+                  {n.label}
+                  <span className="nav-kbd">{MOD}{index}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+        <div className="side-foot">
           <SyncIndicator />
-          <div className="user-chip">
-            <div className="avatar">{(user.name || '?').slice(0, 1)}</div>
+          <div className="user-card">
+            <div className="avatar">{(user.name || '?').trim().slice(0, 1)}</div>
             <div>
               <div className="user-name">{user.name}</div>
               <div className="user-role">{isAdmin ? 'مدير' : 'موظف'}</div>
             </div>
+            <button className="icon-btn" title="تسجيل الخروج" onClick={logout}><LogOut /></button>
           </div>
-          <button className="btn btn-ghost btn-block" onClick={logout}>تسجيل الخروج</button>
         </div>
       </aside>
-      <main className="content">
-        {user.must_change_password && current !== 'account' && (
-          <div className="alert alert-warn">
-            أنت تستخدم كلمة المرور الافتراضية. <button className="link" onClick={() => setPage('account')}>غيّرها الآن</button> لحماية البيانات.
-          </div>
-        )}
-        <Page navigate={setPage} />
+      <main className="main">
+        <BannerCtx.Provider value={banner}>
+          <Page navigate={setPage} />
+        </BannerCtx.Provider>
       </main>
     </div>
   );
