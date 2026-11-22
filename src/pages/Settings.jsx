@@ -5,6 +5,7 @@ import { useAction, useApp, useData } from '../lib/context.jsx';
 import { dateTime, durationLabel, latin, num } from '../lib/format.js';
 import schemaSql from '../../supabase/schema.sql?raw';
 import { printReceipt } from '../lib/print.js';
+import Combobox from '../components/Combobox.jsx';
 import { Confirm, Empty, Field, Modal, MoneyInput, Page, Panel, Switch, Tabs } from '../components/ui.jsx';
 
 const TABS = [
@@ -180,10 +181,9 @@ function Crud({ tbl, title, fields, defaults, newLabel }) {
                         {Object.entries(f.options).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
                     ) : (
-                      <>
-                        <input autoFocus={f.key === 'name'} list={f.suggest ? `sug-${f.key}` : undefined} value={edit[f.key] || ''} onChange={(e) => setEdit({ ...edit, [f.key]: e.target.value })} />
-                        {f.suggest && <datalist id={`sug-${f.key}`}>{suggestions(f.key).map((s) => <option key={s} value={s} />)}</datalist>}
-                      </>
+                      f.suggest
+                        ? <Combobox value={edit[f.key] || ''} onChange={(v) => setEdit({ ...edit, [f.key]: v })} options={suggestions(f.key)} newLabel="قسم جديد" />
+                        : <input autoFocus={f.key === 'name'} value={edit[f.key] || ''} onChange={(e) => setEdit({ ...edit, [f.key]: e.target.value })} />
                     )}
               </Field>
             ))}

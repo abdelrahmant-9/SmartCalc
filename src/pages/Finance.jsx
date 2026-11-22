@@ -6,6 +6,7 @@ import { addDays, endOfMonth, money, num, prettyDate, startOfMonth, startOfWeek,
 import { movements, SECTION_LABELS, summarize } from '../lib/finance.js';
 import { Confirm, Empty, Field, Metric, Metrics, MethodSelect, Modal, MoneyInput, Page, Panel, useShowMore } from '../components/ui.jsx';
 import BarChart from '../components/BarChart.jsx';
+import Combobox from '../components/Combobox.jsx';
 
 export function RangePicker({ value, onChange }) {
   const t = today();
@@ -64,8 +65,7 @@ export function TransactionForm({ initial, onClose, lockSection }) {
           </Field>
         )}
         <Field label="البند">
-          <input list="tx-cats" value={f.category} onChange={set('category')} />
-          <datalist id="tx-cats">{cats.map((c) => <option key={c} value={c} />)}</datalist>
+          <Combobox value={f.category} onChange={set('category')} options={cats} newLabel="بند جديد" />
         </Field>
         <Field label="طريقة الدفع"><MethodSelect value={f.method} onChange={set('method')} methods={settings.paymentMethods} /></Field>
         <Field label="التفاصيل" span={lockSection ? undefined : 2}><input value={f.note} onChange={set('note')} /></Field>

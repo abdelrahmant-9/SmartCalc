@@ -462,3 +462,20 @@ button.agenda-item:hover { background: #fcfbfa; }
 }
 .is-mac .login-art, .is-mac .login-form { -webkit-app-region: drag; }
 .is-mac .login-form form { -webkit-app-region: no-drag; }
+
+/* ---------- combobox (text + suggestions) ---------- */
+.combo { position: relative; }
+.combo input { padding-left: 36px; }
+.combo-toggle { position: absolute; left: 1px; top: 1px; bottom: 1px; width: 34px; display: grid; place-items: center; background: none; border: 0; color: var(--muted); border-radius: var(--r) 0 0 var(--r); }
+.combo-toggle svg { width: 16px; height: 16px; transition: transform .15s; }
+.combo.open .combo-toggle svg { transform: rotate(180deg); }
+.combo-list {
+  position: fixed; z-index: 200; margin: 0; padding: 4px; list-style: none; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r); box-shadow: var(--shadow-pop);
+  animation: fade .1s ease-out;
+}
+.combo-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: var(--r-sm); cursor: pointer; color: var(--ink); }
+.combo-list li svg { width: 15px; height: 15px; color: var(--brand-ink); flex-shrink: 0; }
+.combo-list li.active { background: var(--brand-tint); }
+.combo-list li.selected { font-weight: 600; }
+.combo-list li.combo-new { justify-content: flex-start; color: var(--brand-ink); border-top: 1px solid var(--line); border-radius: 0 0 var(--r-sm) var(--r-sm); margin-top: 2px; }
