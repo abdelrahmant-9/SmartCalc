@@ -11,7 +11,7 @@ import {
 import { BOOKING_STATUS, computeBookingPrice, overlaps, paidFor } from '../lib/finance.js';
 import { printReceipt } from '../lib/print.js';
 import {
-  Confirm, Empty, Field, MethodSelect, Modal, MoneyInput, Notice, Page, Panel, Segmented, StatusBadge,
+  Confirm, Empty, Field, MethodSelect, Modal, MoneyInput, Notice, Page, Panel, Segmented, StatusBadge, useShowMore,
 } from '../components/ui.jsx';
 
 export const bookingCode = (b) => (b?.id || '').replace(/^seed-/, '').slice(0, 6).toUpperCase();
@@ -158,7 +158,7 @@ function MonthCalendar({ month, setMonth, byDay, selected, onSelect }) {
             <button key={iso} className={`cal-cell ${iso === selected ? 'selected' : ''} ${iso === t ? 'today' : ''}`} onClick={() => onSelect(iso)}>
               <span className="cal-num">{Number(iso.slice(8))}</span>
               {list.slice(0, 3).map((b) => (
-                <span key={b.id} className={`cal-event ev-${b.status}`}><b>{time12(b.start_time).replace(/ .+$/, '')}</b> {b.bride_name}</span>
+                <span key={b.id} className={`cal-event ev-${b.status}`}><b>{time12(b.start_time).replace(/ .+$/, '')}</b><span className="ev-name">{b.bride_name}</span></span>
               ))}
               {list.length > 3 && <span className="cal-more">+{list.length - 3}</span>}
             </button>
@@ -170,7 +170,13 @@ function MonthCalendar({ month, setMonth, byDay, selected, onSelect }) {
 }
 
 function BookingTable({ bookings, payments, currency, onOpen }) {
-  const rows = [...bookings].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (a.start_time || '').localeCompare(b.start_time || ''));
+  const rows = useMemo(() => [...bookings].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (a.start_time || '').localeCompare(b.start_time || '')), [bookings]);
+  const paidMap = useMemo(() => {
+    const m = {};
+    for (const p of payments) m[p.booking_id] = (m[p.booking_id] || 0) + (Number(p.amount) || 0);
+    return m;
+  }, [payments]);
+  const [shown, more] = useShowMore(rows, 100, rows.length);
   return (
     <Panel body={false} title="كل الحجوزات" meta={rows.length}>
       {!rows.length ? <Empty icon={CalendarHeart}>لا توجد حجوزات مطابقة</Empty> : (
@@ -180,8 +186,8 @@ function BookingTable({ bookings, payments, currency, onOpen }) {
               <tr><th>الموعد</th><th>العروسة والعريس</th><th>الباكدج</th><th>الحالة</th><th className="end">الإجمالي</th><th className="end">المدفوع</th><th className="end">المتبقي</th><th>الكود</th></tr>
             </thead>
             <tbody>
-              {rows.map((b) => {
-                const paid = paidFor(b.id, payments);
+              {shown.map((b) => {
+                const paid = paidMap[b.id] || 0;
                 const rem = (Number(b.total) || 0) - paid;
                 return (
                   <tr key={b.id} className="clickable" onClick={() => onOpen(b.id)}>
@@ -198,6 +204,7 @@ function BookingTable({ bookings, payments, currency, onOpen }) {
               })}
             </tbody>
           </table>
+          {more}
         </div>
       )}
     </Panel>
@@ -395,17 +402,22 @@ function BookingDetail({ booking: b, payments, onClose, onEdit }) {
   const setStatus = (status) => act(() => api.put('bookings', { ...b, status }), 'تم تحديث الحالة').catch(() => {});
 
   const print = () => printReceipt({
-    venueName: settings.venueName,
-    title: `إيصال حجز ${bookingCode(b)}`,
-    lines: [
-      ['العروسة', b.bride_name], ['العريس', b.groom_name || '-'], ['التليفون', latin(b.phone)],
-      ['الموعد', `${b.date} ${time12(b.start_time)}`], ['المدة', durationLabel(b.duration_minutes)], ['الباكدج', b.package_name],
+    settings: { ...settings, currency },
+    title: 'إيصال حجز',
+    number: bookingCode(b),
+    meta: [
+      ['العروسة', b.bride_name], ...(b.groom_name ? [['العريس', b.groom_name]] : []), ['التليفون', latin(b.phone)],
+      ['الموعد', `${prettyDate(b.date)} · ${time12(b.start_time)}`], ['المدة', durationLabel(b.duration_minutes)],
     ],
-    items: (b.extras || []).map((e) => ({ name: e.name, qty: e.qty || 1, total: money(e.price, currency) })),
-    totals: [
-      ['الإجمالي', money(b.total, currency), true], ['المدفوع', money(paid, currency)], ['المتبقي', money(remaining, currency), true],
+    items: [
+      { name: b.package_name + (b.pricing_type === 'hourly' ? ` (${b.hours} ساعة)` : ''), qty: 1, price: Number(b.base_price ?? b.package_price) || 0 },
+      ...(b.extras || []).map((e) => ({ name: e.name, qty: e.qty || 1, price: Number(e.price) || 0 })),
     ],
-    footer: settings.receiptFooter,
+    totals: Number(b.discount) > 0 || (b.subtotal && b.subtotal !== b.total)
+      ? [['المجموع', Number(b.subtotal) || 0], ...(Number(b.discount) > 0 ? [['خصم', -Number(b.discount)]] : [])] : [],
+    grand: ['إجمالي الحجز', Number(b.total) || 0],
+    after: [['المدفوع', paid], ['المتبقي', remaining]],
+    note: b.notes,
   });
 
   const kindLabel = (p) => (p.kind === 'deposit' ? 'عربون' : p.kind === 'refund' ? 'استرداد' : 'دفعة');

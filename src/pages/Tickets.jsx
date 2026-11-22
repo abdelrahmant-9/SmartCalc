@@ -30,11 +30,14 @@ export default function Tickets() {
       const sale = await act(() => api.put('ticket_sales', { date: today(), time: nowTime(), items, total, method, note }), 'تم تسجيل البيع');
       if (printAfter) {
         printReceipt({
-          venueName: settings.venueName, title: 'تذكرة دخول',
-          lines: [['التاريخ', `${sale.date} ${time12(sale.time)}`], ['الموظف', user.name]],
-          items: items.map((i) => ({ name: i.name, qty: i.qty, total: money(i.price * i.qty, currency) })),
-          totals: [['الإجمالي', money(total, currency), true], ['الدفع', method]],
-          footer: settings.receiptFooter,
+          settings: { ...settings, currency },
+          title: 'تذاكر دخول',
+          number: sale.id.slice(0, 6).toUpperCase(),
+          meta: [['التاريخ', sale.date], ['الوقت', time12(sale.time)], ['الموظف', user.name]],
+          items,
+          grand: ['الإجمالي', total],
+          payment: method,
+          note,
         });
       }
       setQty({}); setNote('');

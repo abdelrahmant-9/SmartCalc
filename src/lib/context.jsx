@@ -31,7 +31,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!user) return;
-    api.get('settings', 'app').then(setSettings).catch(() => {});
+    api.get('settings', 'app').then((s) => setSettings({ receiptPaper: '80mm', venuePhone: '01124545323', venueAddress: 'طريق شبين الكوم - قويسنا', ...s })).catch(() => {});
     // Pick up role/active changes that arrived via sync.
     api.me().then((u) => { if (!u) setUser(null); else if (JSON.stringify(u) !== JSON.stringify(user)) setUser(u); }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps

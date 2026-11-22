@@ -9,7 +9,7 @@
     "start": "vite build && electron .",
     "dist:win": "vite build && electron-builder --win",
     "dist:mac": "vite build && electron-builder --mac",
-    "test": "node --test test/*.test.cjs"
+    "test": "node --test test/*.test.cjs test/*.test.mjs"
   },
   "author": "Heaven",
   "license": "UNLICENSED",

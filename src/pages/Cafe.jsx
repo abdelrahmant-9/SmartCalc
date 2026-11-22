@@ -66,14 +66,15 @@ function Pos() {
       const o = await act(() => api.put('cafe_orders', { date: today(), time: nowTime(), number, items: cart, subtotal, discount: disc, total, method, note }), `تم تسجيل الطلب #${number}`);
       if (printAfter) {
         printReceipt({
-          venueName: settings.venueName, title: `طلب كافيه #${number}`,
-          lines: [['التاريخ', `${o.date} ${time12(o.time)}`], ['الموظف', user.name]],
-          items: cart.map((i) => ({ name: i.name, qty: i.qty, total: money(i.price * i.qty, currency) })),
-          totals: [
-            ...(disc ? [['المجموع', money(subtotal, currency)], ['خصم', money(disc, currency)]] : []),
-            ['الإجمالي', money(total, currency), true], ['الدفع', method],
-          ],
-          footer: settings.receiptFooter,
+          settings: { ...settings, currency },
+          title: 'فاتورة كافيه',
+          number: String(number),
+          meta: [['التاريخ', o.date], ['الوقت', time12(o.time)], ['الكاشير', user.name]],
+          items: cart,
+          totals: disc ? [['المجموع', subtotal], ['خصم', -disc]] : [],
+          grand: ['الإجمالي', total],
+          payment: method,
+          note,
         });
       }
       setCart([]); setDiscount(''); setNote('');
@@ -207,7 +208,7 @@ function CafeAccounts() {
                     <td className="num">{t.date}</td>
                     <td><div className="cell-title">{t.category}</div>{t.note && <div className="cell-sub">{t.note}</div>}</td>
                     <td className="muted">{userName(t.created_by)}</td>
-                    <td className={`end num strong ${t.type === 'in' ? 'text-ok' : ''}`}>{t.type === 'in' ? '+' : '−'}{num(t.amount)}</td>
+                    <td className={`end num strong ${t.type === 'in' ? 'text-ok' : ''}`}><span className="signed">{t.type === 'in' ? '+' : '−'}{num(t.amount)}</span></td>
                     {isAdmin && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(t)}><Trash2 /></button></td>}
                   </tr>
                 ))}

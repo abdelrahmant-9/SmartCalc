@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Copy, Download, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, Pencil, Plus, Printer, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAction, useApp, useData } from '../lib/context.jsx';
 import { dateTime, durationLabel, latin, num } from '../lib/format.js';
 import schemaSql from '../../supabase/schema.sql?raw';
+import { printReceipt } from '../lib/print.js';
 import { Confirm, Empty, Field, Modal, MoneyInput, Page, Panel, Switch, Tabs } from '../components/ui.jsx';
 
 const TABS = [
@@ -74,7 +75,6 @@ function General() {
             <Field label="أقصى عدد حجوزات في نفس التوقيت" hint="يظهر تنبيه عند تجاوزه">
               <input type="number" min="1" value={f.maxConcurrentBookings} onChange={(e) => set('maxConcurrentBookings', Number(e.target.value))} />
             </Field>
-            <Field label="نص أسفل الإيصال"><input value={f.receiptFooter} onChange={(e) => set('receiptFooter', e.target.value)} /></Field>
           </div>
         </Panel>
         <Panel title="صلاحيات الموظف">
@@ -83,6 +83,23 @@ function General() {
           <Switch label="تسجيل مصروفات" desc="المصروفات تظهر باسم الموظف في الحسابات" checked={f.allowEmployeeExpenses} onChange={(v) => set('allowEmployeeExpenses', v)} />
         </Panel>
       </div>
+      <Panel title="الإيصال" actions={<button className="btn btn-sm" onClick={() => printReceipt({
+        settings: f, title: 'فاتورة كافيه', number: '12', meta: [['التاريخ', '2026-11-23'], ['الوقت', '6:30 م'], ['الكاشير', 'تجربة']],
+        items: [{ name: 'قهوة تركي', qty: 2, price: 40 }, { name: 'ليمون نعناع', qty: 1, price: 50 }], grand: ['الإجمالي', 130], payment: 'كاش',
+      })}><Printer />طباعة تجريبية</button>}>
+        <div className="form-grid">
+          <Field label="مقاس الورق">
+            <select value={f.receiptPaper || '80mm'} onChange={(e) => set('receiptPaper', e.target.value)}>
+              <option value="80mm">طابعة فواتير 80mm</option>
+              <option value="58mm">طابعة فواتير 58mm</option>
+              <option value="A4">ورق A4</option>
+            </select>
+          </Field>
+          <Field label="تليفون المكان"><input dir="ltr" value={f.venuePhone || ''} onChange={(e) => set('venuePhone', latin(e.target.value))} /></Field>
+          <Field label="العنوان"><input value={f.venueAddress || ''} onChange={(e) => set('venueAddress', e.target.value)} /></Field>
+          <Field label="رسالة آخر الإيصال"><input value={f.receiptFooter || ''} onChange={(e) => set('receiptFooter', e.target.value)} /></Field>
+        </div>
+      </Panel>
       <Panel title="القوائم" meta="افصل بين العناصر بفاصلة">
         <div className="form-grid">
           <Field label="طرق الدفع" span={2}><input defaultValue={listField('paymentMethods')} onBlur={(e) => set('paymentMethods', parseList(e.target.value))} /></Field>

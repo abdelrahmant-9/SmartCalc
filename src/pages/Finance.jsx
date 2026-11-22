@@ -4,7 +4,7 @@ import { api } from '../lib/api.js';
 import { useAction, useApp, useData } from '../lib/context.jsx';
 import { addDays, endOfMonth, money, num, prettyDate, startOfMonth, startOfWeek, today, toCSV } from '../lib/format.js';
 import { movements, SECTION_LABELS, summarize } from '../lib/finance.js';
-import { Confirm, Empty, Field, Metric, Metrics, MethodSelect, Modal, MoneyInput, Page, Panel } from '../components/ui.jsx';
+import { Confirm, Empty, Field, Metric, Metrics, MethodSelect, Modal, MoneyInput, Page, Panel, useShowMore } from '../components/ui.jsx';
 import BarChart from '../components/BarChart.jsx';
 
 export function RangePicker({ value, onChange }) {
@@ -229,24 +229,26 @@ function AdminFinance() {
 }
 
 function MovementTable({ rows, userName, onDelete }) {
+  const [shown, more] = useShowMore(rows, 100, `${rows.length}-${rows[0]?.key || ''}`);
   return (
     <div className="table-wrap">
       <table className="table">
         <thead><tr><th>التاريخ</th><th>البيان</th><th>القسم</th><th>الدفع</th><th>الموظف</th><th className="end">المبلغ</th>{onDelete && <th />}</tr></thead>
         <tbody>
-          {rows.map((m) => (
+          {shown.map((m) => (
             <tr key={m.key}>
               <td className="num">{m.date}</td>
               <td><div className="cell-title">{m.label}</div>{m.category && m.category !== m.label && <div className="cell-sub">{m.category}</div>}</td>
               <td className="muted">{SECTION_LABELS[m.section] || m.section}</td>
               <td className="muted">{m.method}</td>
               <td className="muted">{userName(m.user)}</td>
-              <td className={`end num strong ${m.type === 'in' ? 'text-ok' : ''}`}>{m.type === 'in' ? '+' : '−'}{num(m.amount)}</td>
+              <td className={`end num strong ${m.type === 'in' ? 'text-ok' : ''}`}><span className="signed">{m.type === 'in' ? '+' : '−'}{num(m.amount)}</span></td>
               {onDelete && <td className="actions">{m.key.startsWith('x-') && <button className="icon-btn danger" title="حذف" onClick={() => onDelete(m)}><Trash2 /></button>}</td>}
             </tr>
           ))}
         </tbody>
       </table>
+      {more}
     </div>
   );
 }

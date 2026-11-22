@@ -16,7 +16,10 @@ const DEFAULT_SETTINGS = {
   paymentMethods: ['كاش', 'فودافون كاش', 'إنستاباي', 'تحويل بنكي', 'فيزا'],
   expenseCategories: ['خامات كافيه', 'مرتبات', 'كهرباء ومياه', 'صيانة', 'زراعة وتنسيق', 'دعاية', 'أخرى'],
   incomeCategories: ['إيراد إضافي', 'أخرى'],
-  receiptFooter: 'شكراً لزيارتكم - Heaven',
+  receiptFooter: 'شكراً لزيارتكم',
+  receiptPaper: '80mm',
+  venuePhone: '01124545323',
+  venueAddress: 'طريق شبين الكوم - قويسنا',
 };
 
 function hashPassword(password) {
