@@ -50,6 +50,13 @@ button { font-family: inherit; font-size: inherit; color: inherit; cursor: point
 svg { flex-shrink: 0; }
 ::selection { background: var(--brand-line); }
 
+/* One focus style for keyboard users; no ring after a mouse click. */
+:focus { outline: none; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--brand-ink); outline-offset: 2px;
+}
+.nav-item:focus-visible, .tab:focus-visible, .segmented button:focus-visible { outline-offset: -2px; }
+
 input, select, textarea {
   font-family: inherit; font-size: 14px; color: var(--ink); width: 100%;
   height: var(--h-ctl); padding: 0 10px; background: var(--surface);
@@ -87,6 +94,7 @@ input[type=number]::-webkit-inner-spin-button { opacity: .4; }
   display: flex; flex-direction: column; padding: 14px 10px 12px; overflow-y: auto;
 }
 .is-mac .sidebar { padding-top: 40px; -webkit-app-region: drag; }
+.is-mac.is-fullscreen .sidebar { padding-top: 14px; }
 .is-mac .sidebar > * { -webkit-app-region: no-drag; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; }
 .brand img { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line-strong); }
@@ -132,6 +140,7 @@ input[type=number]::-webkit-inner-spin-button { opacity: .4; }
   padding: 14px 28px; min-height: 64px; border-bottom: 1px solid var(--line); background: var(--bg);
 }
 .is-mac .page-head { -webkit-app-region: drag; padding-left: 92px; }
+.is-mac.is-fullscreen .page-head { padding-left: 28px; }
 .is-mac .page-head * { -webkit-app-region: no-drag; }
 .page-head h1 { font-size: 18px; }
 .page-head .sub { color: var(--muted); font-size: 13px; margin-top: 1px; }
@@ -412,7 +421,7 @@ button.agenda-item:hover { background: #fcfbfa; }
 
 /* ---------- chart ---------- */
 .chart { position: relative; padding: 8px 16px 12px; }
-.chart svg { display: block; width: 100%; overflow: visible; }
+.chart svg { display: block; width: 100%; overflow: visible; direction: ltr; }
 .chart .grid line { stroke: var(--line); stroke-width: 1; }
 .chart .axis text { fill: var(--muted); font-size: 11px; font-family: inherit; }
 .chart .bar { fill: #7d4887; }

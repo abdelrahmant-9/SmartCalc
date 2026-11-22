@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Copy, Download, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAction, useApp, useData } from '../lib/context.jsx';
-import { dateTime, durationLabel, num } from '../lib/format.js';
+import { dateTime, durationLabel, latin, num } from '../lib/format.js';
 import schemaSql from '../../supabase/schema.sql?raw';
 import { Confirm, Empty, Field, Modal, MoneyInput, Page, Panel, Switch, Tabs } from '../components/ui.jsx';
 
@@ -205,7 +205,7 @@ function Users() {
               </td>
               <td className="mono">{u.username}</td>
               <td>{u.role === 'admin' ? <span className="tag tag-brand">مدير</span> : <span className="tag">موظف</span>}</td>
-              <td className="mono muted">{u.phone || '—'}</td>
+              <td className="mono muted">{latin(u.phone) || '—'}</td>
               <td><span className={`status ${u.active ? 'status-ok' : 'status-muted'}`}>{u.active ? 'نشط' : 'موقوف'}</span></td>
               <td className="actions">
                 <div>
@@ -238,7 +238,7 @@ function Users() {
                 <option value="admin">مدير</option>
               </select>
             </Field>
-            <Field label="التليفون"><input dir="ltr" value={edit.phone || ''} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} /></Field>
+            <Field label="التليفون"><input dir="ltr" value={edit.phone || ''} onChange={(e) => setEdit({ ...edit, phone: latin(e.target.value) })} /></Field>
           </div>
         </Modal>
       )}

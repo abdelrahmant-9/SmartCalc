@@ -31,6 +31,8 @@ function createWindow() {
       sandbox: true,
     },
   });
+  win.on('enter-full-screen', () => send('window:fullscreen', true));
+  win.on('leave-full-screen', () => send('window:fullscreen', false));
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url);
     return { action: 'deny' };

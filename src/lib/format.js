@@ -36,6 +36,10 @@ export const num = (v) => {
   const n = Number(v) || 0;
   return n < 0 ? `\u200E-${nf.format(-n)}` : nf.format(n);
 };
+// Arabic-Indic (٠-٩) and Persian (۰-۹) digits -> 0-9, so numbers typed on an Arabic keyboard stay consistent.
+export function latin(v) {
+  return String(v ?? '').replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) & 0xf));
+}
 export const money = (v, currency = 'ج.م') => `${num(v)} ${currency}`;
 
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];

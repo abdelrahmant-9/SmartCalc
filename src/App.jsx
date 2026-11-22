@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CalendarHeart, Coffee, LayoutDashboard, LogOut, Settings, Ticket, UserRound, Wallet } from 'lucide-react';
 import { useApp } from './lib/context.jsx';
+import { api } from './lib/api.js';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Bookings from './pages/Bookings.jsx';
@@ -47,6 +48,8 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('is-mac', isMac);
+    // In full screen the window buttons are hidden, so the space kept for them goes too.
+    return api.on('window:fullscreen', (on) => document.documentElement.classList.toggle('is-fullscreen', !!on));
   }, []);
 
   // ⌘1…⌘7 / Ctrl+1…7 to jump between sections.

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { CalendarHeart, CalendarDays, Coffee, Plus, Ticket } from 'lucide-react';
 import { useApp, useData } from '../lib/context.jsx';
-import { addDays, durationLabel, money, prettyDate, startOfMonth, time12, today } from '../lib/format.js';
+import { addDays, durationLabel, latin, money, prettyDate, startOfMonth, time12, today } from '../lib/format.js';
 import { movements, paidFor, SECTION_LABELS, summarize } from '../lib/finance.js';
 import { Empty, Metric, Metrics, Notice, Page, Panel, StatusBadge } from '../components/ui.jsx';
 import BarChart from '../components/BarChart.jsx';
@@ -99,7 +99,7 @@ export default function Dashboard({ navigate }) {
                     <div className="agenda-time">{time12(b.start_time)}<small>{durationLabel(b.duration_minutes)}</small></div>
                     <div>
                       <div className="agenda-name">{b.bride_name}{b.groom_name ? ` و${b.groom_name}` : ''}</div>
-                      <div className="agenda-meta">{b.package_name} · <span className="mono">{b.phone}</span></div>
+                      <div className="agenda-meta">{b.package_name} · <span className="mono">{latin(b.phone)}</span></div>
                     </div>
                     <div className="agenda-side">
                       <StatusBadge status={b.status} />

@@ -5,7 +5,7 @@ import {
 import { api } from '../lib/api.js';
 import { useAction, useApp, useData } from '../lib/context.jsx';
 import {
-  addDays, durationLabel, endOfMonth, minutesOf, money, MONTHS, num, prettyDate, startOfMonth, time12,
+  addDays, durationLabel, latin, endOfMonth, minutesOf, money, MONTHS, num, prettyDate, startOfMonth, time12,
   timeFromMinutes, today, toISODate, WEEK_DAYS_FROM_SAT,
 } from '../lib/format.js';
 import { BOOKING_STATUS, computeBookingPrice, overlaps, paidFor } from '../lib/finance.js';
@@ -33,9 +33,9 @@ export default function Bookings() {
   const visible = useMemo(() => bookings.filter((b) => {
     if (status === 'active' && ['cancelled', 'no_show'].includes(b.status)) return false;
     if (status !== 'active' && status !== 'all' && b.status !== status) return false;
-    const q = search.trim();
+    const q = latin(search.trim());
     if (!q) return true;
-    return [b.bride_name, b.groom_name, b.phone, b.phone2, bookingCode(b)].some((v) => String(v || '').toUpperCase().includes(q.toUpperCase()));
+    return [b.bride_name, b.groom_name, b.phone, b.phone2, bookingCode(b)].some((v) => latin(v).toUpperCase().includes(q.toUpperCase()));
   }), [bookings, search, status]);
 
   const byDay = useMemo(() => {
@@ -115,7 +115,7 @@ function AgendaItem({ b, paid, currency, onClick }) {
       <div className="agenda-time">{time12(b.start_time)}<small>{durationLabel(b.duration_minutes)}</small></div>
       <div>
         <div className="agenda-name">{couple(b)}</div>
-        <div className="agenda-meta">{b.package_name} · <span className="mono">{b.phone}</span></div>
+        <div className="agenda-meta">{b.package_name} · <span className="mono">{latin(b.phone)}</span></div>
       </div>
       <div className="agenda-side">
         <StatusBadge status={b.status} />
@@ -186,7 +186,7 @@ function BookingTable({ bookings, payments, currency, onOpen }) {
                 return (
                   <tr key={b.id} className="clickable" onClick={() => onOpen(b.id)}>
                     <td><div className="cell-title num">{b.date}</div><div className="cell-sub">{time12(b.start_time)}</div></td>
-                    <td><div className="cell-title">{couple(b)}</div><div className="cell-sub mono">{b.phone}</div></td>
+                    <td><div className="cell-title">{couple(b)}</div><div className="cell-sub mono">{latin(b.phone)}</div></td>
                     <td>{b.package_name}</td>
                     <td><StatusBadge status={b.status} /></td>
                     <td className="end num">{num(b.total)}</td>
@@ -254,7 +254,7 @@ function BookingForm({ initial, allBookings, onClose, onSaved }) {
     if (!pkg) return toast('اختر الباكدج', 'error');
     const doc = {
       ...f,
-      bride_name: f.bride_name.trim(), groom_name: f.groom_name.trim(), phone: f.phone.trim(), phone2: f.phone2.trim(),
+      bride_name: f.bride_name.trim(), groom_name: f.groom_name.trim(), phone: latin(f.phone).trim(), phone2: latin(f.phone2).trim(),
       package_name: pkg.name, pricing_type: pkg.pricing_type, package_price: Number(pkg.price) || 0,
       base_price: price.base, extras_total: price.extrasTotal, subtotal: price.subtotal,
       discount: canDiscount ? price.discount : 0, total: finalTotal,
@@ -288,8 +288,8 @@ function BookingForm({ initial, allBookings, onClose, onSaved }) {
           <Field label="اسم العروسة"><input autoFocus value={f.bride_name} onChange={(e) => set('bride_name', e.target.value)} /></Field>
           <Field label="اسم العريس"><input value={f.groom_name} onChange={(e) => set('groom_name', e.target.value)} /></Field>
           <Field label="المصور / الاستوديو"><input value={f.photographer} onChange={(e) => set('photographer', e.target.value)} /></Field>
-          <Field label="رقم التليفون"><input dir="ltr" value={f.phone} onChange={(e) => set('phone', e.target.value)} placeholder="01xxxxxxxxx" /></Field>
-          <Field label="رقم آخر"><input dir="ltr" value={f.phone2} onChange={(e) => set('phone2', e.target.value)} /></Field>
+          <Field label="رقم التليفون"><input dir="ltr" value={f.phone} onChange={(e) => set('phone', latin(e.target.value))} placeholder="01xxxxxxxxx" /></Field>
+          <Field label="رقم آخر"><input dir="ltr" value={f.phone2} onChange={(e) => set('phone2', latin(e.target.value))} /></Field>
           <Field label="عدد المرافقين"><input type="number" min="0" value={f.guests} onChange={(e) => set('guests', e.target.value)} /></Field>
         </div>
       </div>
@@ -398,7 +398,7 @@ function BookingDetail({ booking: b, payments, onClose, onEdit }) {
     venueName: settings.venueName,
     title: `إيصال حجز ${bookingCode(b)}`,
     lines: [
-      ['العروسة', b.bride_name], ['العريس', b.groom_name || '-'], ['التليفون', b.phone],
+      ['العروسة', b.bride_name], ['العريس', b.groom_name || '-'], ['التليفون', latin(b.phone)],
       ['الموعد', `${b.date} ${time12(b.start_time)}`], ['المدة', durationLabel(b.duration_minutes)], ['الباكدج', b.package_name],
     ],
     items: (b.extras || []).map((e) => ({ name: e.name, qty: e.qty || 1, total: money(e.price, currency) })),
@@ -422,7 +422,7 @@ function BookingDetail({ booking: b, payments, onClose, onEdit }) {
       <div className="detail">
         <div>
           <dl className="facts">
-            <dt>التليفون</dt><dd className="mono">{b.phone}{b.phone2 ? ` · ${b.phone2}` : ''}</dd>
+            <dt>التليفون</dt><dd className="mono">{latin(b.phone)}{b.phone2 ? ` · ${latin(b.phone2)}` : ''}</dd>
             <dt>الموعد</dt><dd>{time12(b.start_time)} – {time12(b.end_time)} <span className="muted">({durationLabel(b.duration_minutes)})</span></dd>
             <dt>الباكدج</dt><dd>{b.package_name}{b.pricing_type === 'hourly' ? ` · ${b.hours} ساعة` : ''}</dd>
             {(b.extras || []).length > 0 && (<><dt>إضافات</dt><dd>{b.extras.map((e) => e.name).join('، ')}</dd></>)}
