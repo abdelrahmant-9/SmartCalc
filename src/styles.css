@@ -64,13 +64,21 @@ input, select, textarea {
   transition: border-color .12s, box-shadow .12s;
 }
 textarea { height: auto; padding: 8px 10px; resize: vertical; }
-select { padding-left: 28px; }
+select {
+  -webkit-appearance: none; appearance: none; cursor: pointer;
+  padding-left: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238f858d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: left 10px center; background-size: 16px;
+}
+select:disabled { cursor: default; }
 input::placeholder, textarea::placeholder { color: var(--faint); }
 input:hover, select:hover, textarea:hover { border-color: var(--faint); }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand-ink); box-shadow: 0 0 0 3px rgba(125, 72, 135, .14); }
 input:disabled, select:disabled { background: var(--sunken); color: var(--muted); }
 input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--brand); padding: 0; }
-input[type=number]::-webkit-inner-spin-button { opacity: .4; }
+/* Native number spinners look different on every OS; amounts are typed, counts use the − / + buttons. */
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
 
 .mono, .num { font-variant-numeric: tabular-nums; }
 .mono { direction: ltr; unicode-bidi: isolate; letter-spacing: .01em; }
