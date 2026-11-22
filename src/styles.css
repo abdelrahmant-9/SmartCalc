@@ -479,3 +479,20 @@ button.agenda-item:hover { background: #fcfbfa; }
 .combo-list li.active { background: var(--brand-tint); }
 .combo-list li.selected { font-weight: 600; }
 .combo-list li.combo-new { justify-content: flex-start; color: var(--brand-ink); border-top: 1px solid var(--line); border-radius: 0 0 var(--r-sm) var(--r-sm); margin-top: 2px; }
+
+/* ---------- select (app-drawn) ---------- */
+.select {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  height: var(--h-ctl); padding: 0 10px 0 8px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: var(--r); font-size: 14px; text-align: right;
+  transition: border-color .12s, box-shadow .12s;
+}
+.select:hover:not(:disabled) { border-color: var(--faint); }
+.select:focus-visible, .select.open { outline: none; border-color: var(--brand-ink); box-shadow: 0 0 0 3px rgba(125, 72, 135, .14); }
+.select:disabled { background: var(--sunken); color: var(--muted); cursor: default; }
+.select-value { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.select-value.placeholder { color: var(--faint); }
+.select-chevron { width: 16px; height: 16px; color: var(--muted); transition: transform .15s; }
+.select.open .select-chevron { transform: rotate(180deg); }
+.row .select, .page-actions .select, .panel-head .select { width: auto; min-width: 140px; }
+.combo-list li span { white-space: nowrap; }

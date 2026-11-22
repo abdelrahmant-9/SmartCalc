@@ -7,6 +7,7 @@ import { movements, SECTION_LABELS, summarize } from '../lib/finance.js';
 import { Confirm, Empty, Field, Metric, Metrics, MethodSelect, Modal, MoneyInput, Page, Panel, useShowMore } from '../components/ui.jsx';
 import BarChart from '../components/BarChart.jsx';
 import Combobox from '../components/Combobox.jsx';
+import Select from '../components/Select.jsx';
 
 export function RangePicker({ value, onChange }) {
   const t = today();
@@ -59,9 +60,7 @@ export function TransactionForm({ initial, onClose, lockSection }) {
         <Field label="التاريخ"><input type="date" value={f.date} onChange={set('date')} disabled={!isAdmin} /></Field>
         {!lockSection && (
           <Field label="القسم">
-            <select value={f.section} onChange={set('section')}>
-              {Object.entries(SECTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
+            <Select value={f.section} onChange={set('section')} options={Object.entries(SECTION_LABELS).map(([value, label]) => ({ value, label }))} />
           </Field>
         )}
         <Field label="البند">
@@ -202,15 +201,8 @@ function AdminFinance() {
         body={false} title="الحركات" meta={filtered.length}
         actions={(
           <>
-            <select value={section} onChange={(e) => setSection(e.target.value)}>
-              <option value="all">كل الأقسام</option>
-              {Object.entries(SECTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="all">داخل وخارج</option>
-              <option value="in">داخل</option>
-              <option value="out">خارج</option>
-            </select>
+            <Select value={section} onChange={setSection} aria-label="القسم" options={[{ value: 'all', label: 'كل الأقسام' }, ...Object.entries(SECTION_LABELS).map(([value, label]) => ({ value, label }))]} />
+            <Select value={type} onChange={setType} aria-label="النوع" options={[{ value: 'all', label: 'داخل وخارج' }, { value: 'in', label: 'داخل' }, { value: 'out', label: 'خارج' }]} />
           </>
         )}
       >

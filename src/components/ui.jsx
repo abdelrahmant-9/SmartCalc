@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Inbox, Info, TriangleAlert, X } from 'lucide-react';
 import { BOOKING_STATUS } from '../lib/finance.js';
 import { num } from '../lib/format.js';
+import Select from './Select.jsx';
 
 // Banner (e.g. "change default password") shown at the top of every page.
 export const BannerCtx = createContext(null);
@@ -171,9 +172,7 @@ export function MoneyInput({ value, onChange, ...rest }) {
 
 export function MethodSelect({ value, onChange, methods }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
-      {(methods || ['كاش']).map((m) => <option key={m} value={m}>{m}</option>)}
-    </select>
+    <Select value={value} onChange={onChange} options={methods?.length ? methods : ['كاش']} aria-label="طريقة الدفع" />
   );
 }
 

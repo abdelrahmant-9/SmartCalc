@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 
 // Text field with a suggestion list: pick an existing value or type a new one.
@@ -69,7 +70,7 @@ export default function Combobox({ value, onChange, options, placeholder, autoFo
         type="button" tabIndex={-1} className="combo-toggle" aria-label="عرض الاختيارات"
         onMouseDown={(e) => { e.preventDefault(); if (open) setOpen(false); else { input.current?.focus(); show(); } }}
       ><ChevronDown /></button>
-      {open && pos && (shown.length > 0 || isNew) && (
+      {open && pos && (shown.length > 0 || isNew) && createPortal(
         <ul className="combo-list" role="listbox" style={pos} onMouseDown={(e) => e.preventDefault()}>
           {shown.map((o, i) => (
             <li key={o} role="option" aria-selected={o === q} className={`${i === active ? 'active' : ''} ${o === q ? 'selected' : ''}`}
@@ -80,7 +81,8 @@ export default function Combobox({ value, onChange, options, placeholder, autoFo
           {isNew && (
             <li className="combo-new" onClick={() => choose(q)}><Plus /><span>{newLabel} «{q}»</span></li>
           )}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import { dateTime, durationLabel, latin, num } from '../lib/format.js';
 import schemaSql from '../../supabase/schema.sql?raw';
 import { printReceipt } from '../lib/print.js';
 import Combobox from '../components/Combobox.jsx';
+import Select from '../components/Select.jsx';
 import { Confirm, Empty, Field, Modal, MoneyInput, Page, Panel, Switch, Tabs } from '../components/ui.jsx';
 
 const TABS = [
@@ -90,11 +91,9 @@ function General() {
       })}><Printer />طباعة تجريبية</button>}>
         <div className="form-grid">
           <Field label="مقاس الورق">
-            <select value={f.receiptPaper || '80mm'} onChange={(e) => set('receiptPaper', e.target.value)}>
-              <option value="80mm">طابعة فواتير 80mm</option>
-              <option value="58mm">طابعة فواتير 58mm</option>
-              <option value="A4">ورق A4</option>
-            </select>
+            <Select value={f.receiptPaper || '80mm'} onChange={(v) => set('receiptPaper', v)} options={[
+              { value: '80mm', label: 'طابعة فواتير 80mm' }, { value: '58mm', label: 'طابعة فواتير 58mm' }, { value: 'A4', label: 'ورق A4' },
+            ]} />
           </Field>
           <Field label="تليفون المكان"><input dir="ltr" value={f.venuePhone || ''} onChange={(e) => set('venuePhone', latin(e.target.value))} /></Field>
           <Field label="العنوان"><input value={f.venueAddress || ''} onChange={(e) => set('venueAddress', e.target.value)} /></Field>
@@ -177,9 +176,7 @@ function Crud({ tbl, title, fields, defaults, newLabel }) {
                 {f.type === 'money' ? <MoneyInput value={edit[f.key]} onChange={(v) => setEdit({ ...edit, [f.key]: v })} />
                   : f.type === 'number' ? <input type="number" min="0" value={edit[f.key] ?? ''} onChange={(e) => setEdit({ ...edit, [f.key]: Number(e.target.value) })} />
                     : f.type === 'select' ? (
-                      <select value={edit[f.key]} onChange={(e) => setEdit({ ...edit, [f.key]: e.target.value })}>
-                        {Object.entries(f.options).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                      </select>
+                      <Select value={edit[f.key]} onChange={(v) => setEdit({ ...edit, [f.key]: v })} options={Object.entries(f.options).map(([value, label]) => ({ value, label }))} />
                     ) : (
                       f.suggest
                         ? <Combobox value={edit[f.key] || ''} onChange={(v) => setEdit({ ...edit, [f.key]: v })} options={suggestions(f.key)} newLabel="قسم جديد" />
@@ -250,10 +247,7 @@ function Users() {
               <input type="password" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} />
             </Field>
             <Field label="الصلاحية">
-              <select value={edit.role} onChange={(e) => setEdit({ ...edit, role: e.target.value })}>
-                <option value="employee">موظف</option>
-                <option value="admin">مدير</option>
-              </select>
+              <Select value={edit.role} onChange={(v) => setEdit({ ...edit, role: v })} options={[{ value: 'employee', label: 'موظف' }, { value: 'admin', label: 'مدير' }]} />
             </Field>
             <Field label="التليفون"><input dir="ltr" value={edit.phone || ''} onChange={(e) => setEdit({ ...edit, phone: latin(e.target.value) })} /></Field>
           </div>

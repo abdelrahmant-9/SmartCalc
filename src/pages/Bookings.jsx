@@ -10,6 +10,7 @@ import {
 } from '../lib/format.js';
 import { BOOKING_STATUS, computeBookingPrice, overlaps, paidFor } from '../lib/finance.js';
 import { printReceipt } from '../lib/print.js';
+import Select from '../components/Select.jsx';
 import {
   Confirm, Empty, Field, MethodSelect, Modal, MoneyInput, Notice, Page, Panel, Segmented, StatusBadge, useShowMore,
 } from '../components/ui.jsx';
@@ -57,11 +58,7 @@ export default function Bookings() {
             <Search size={16} />
             <input placeholder="اسم، تليفون، أو كود الحجز" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="active">الحجوزات القائمة</option>
-            <option value="all">كل الحالات</option>
-            {Object.entries(BOOKING_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
+          <Select value={status} onChange={setStatus} aria-label="الحالة" options={[{ value: 'active', label: 'الحجوزات القائمة' }, { value: 'all', label: 'كل الحالات' }, ...Object.entries(BOOKING_STATUS).map(([value, v]) => ({ value, label: v.label }))]} />
           <Segmented value={view} onChange={setView} options={[{ id: 'calendar', label: 'تقويم', icon: CalendarDays }, { id: 'list', label: 'قائمة', icon: List }]} />
           <button className="btn btn-primary" onClick={() => setEditing({ date: selectedDay })}><Plus />حجز جديد</button>
         </>
@@ -310,9 +307,7 @@ function BookingForm({ initial, allBookings, onClose, onSaved }) {
             <input type="number" min="15" step="15" value={f.duration_minutes} onChange={(e) => set('duration_minutes', Number(e.target.value))} />
           </Field>
           <Field label="الحالة">
-            <select value={f.status} onChange={(e) => set('status', e.target.value)}>
-              {Object.entries(BOOKING_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
+            <Select value={f.status} onChange={(v) => set('status', v)} options={Object.entries(BOOKING_STATUS).map(([value, v]) => ({ value, label: v.label }))} />
           </Field>
         </div>
         {conflicts.length >= maxConcurrent && (
