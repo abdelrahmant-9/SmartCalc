@@ -1,0 +1,92 @@
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { api } from './api.js';
+
+const AppCtx = createContext(null);
+
+export function AppProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [settings, setSettings] = useState(null);
+  const [version, setVersion] = useState(0);
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const toastId = useRef(0);
+
+  const refresh = useCallback(() => setVersion((v) => v + 1), []);
+
+  const toast = useCallback((message, type = 'success') => {
+    const id = ++toastId.current;
+    setToasts((t) => [...t, { id, message, type }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), type === 'error' ? 5000 : 2800);
+  }, []);
+
+  useEffect(() => {
+    api.me().then(setUser).catch(() => {}).finally(() => setReady(true));
+    api.syncStatus().then(setSyncStatus).catch(() => {});
+    const off1 = api.on('data:changed', () => setVersion((v) => v + 1));
+    const off2 = api.on('sync:status', setSyncStatus);
+    return () => { off1(); off2(); };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    api.get('settings', 'app').then(setSettings).catch(() => {});
+    // Pick up role/active changes that arrived via sync.
+    api.me().then((u) => { if (!u) setUser(null); else if (JSON.stringify(u) !== JSON.stringify(user)) setUser(u); }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, version]);
+
+  const login = async (u, p) => { const me = await api.login(u, p); setUser(me); refresh(); return me; };
+  const logout = async () => { await api.logout(); setUser(null); };
+
+  const value = {
+    user, setUser, ready, settings: settings || {}, version, refresh, toast,
+    syncStatus, setSyncStatus, login, logout,
+    isAdmin: user?.role === 'admin',
+    currency: settings?.currency || 'ج.م',
+  };
+  return (
+    <AppCtx.Provider value={value}>
+      {children}
+      <div className="toasts">
+        {toasts.map((t) => <div key={t.id} className={`toast toast-${t.type}`}>{t.message}</div>)}
+      </div>
+    </AppCtx.Provider>
+  );
+}
+
+export const useApp = () => useContext(AppCtx);
+
+// Load rows from a table and reload whenever local data changes (or deps change).
+export function useData(tbl, opts, deps = []) {
+  const { version, toast } = useApp();
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const key = JSON.stringify(opts || {});
+  useEffect(() => {
+    let alive = true;
+    api.list(tbl, opts)
+      .then((r) => { if (alive) setRows(r); })
+      .catch((e) => toast(e.message, 'error'))
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tbl, key, version, ...deps]);
+  return [rows, loading];
+}
+
+// Run an async action with a success / error toast, then refresh all views.
+export function useAction() {
+  const { toast, refresh } = useApp();
+  return useCallback(async (fn, successMsg) => {
+    try {
+      const r = await fn();
+      if (successMsg) toast(successMsg);
+      refresh();
+      return r;
+    } catch (e) {
+      toast(e.message, 'error');
+      throw e;
+    }
+  }, [toast, refresh]);
+}
