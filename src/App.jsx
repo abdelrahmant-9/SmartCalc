@@ -42,6 +42,8 @@ const PAGES = { dashboard: Dashboard, bookings: Bookings, tickets: Tickets, cafe
 export default function App() {
   const { user, ready, logout, isAdmin } = useApp();
   const [page, setPage] = useState('dashboard');
+  const [demo, setDemo] = useState(false);
+  useEffect(() => { api.appInfo().then((i) => { setDemo(!!i.demo); if (i.demo) document.title = 'Heaven Manager — نسخة تجريبية'; }).catch(() => {}); }, []);
 
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.admin || isAdmin) }));
   const flat = groups.flatMap((g) => g.items);
@@ -69,7 +71,9 @@ export default function App() {
 
   const current = flat.some((n) => n.id === page) ? page : 'dashboard';
   const Page = PAGES[current];
-  const banner = user.must_change_password && current !== 'account' ? (
+  const banner = demo ? (
+    <Notice tone="info">نسخة تجريبية ببيانات وهمية — بياناتك الحقيقية في البرنامج العادي ولم تتأثر.</Notice>
+  ) : user.must_change_password && current !== 'account' ? (
     <Notice tone="warn">
       كلمة المرور الحالية هي الافتراضية.
       <span className="spacer" />

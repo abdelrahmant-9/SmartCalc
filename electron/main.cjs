@@ -19,7 +19,7 @@ function createWindow() {
     height: 860,
     minWidth: 1100,
     minHeight: 700,
-    title: 'Heaven Manager',
+    title: process.env.HEAVEN_DEMO ? 'Heaven Manager — نسخة تجريبية' : 'Heaven Manager',
     backgroundColor: '#F6F0EB',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     autoHideMenuBar: true,
@@ -98,8 +98,11 @@ function registerIpc() {
     return parsed.rows.length;
   });
 
-  handle('app:info', () => ({ version: app.getVersion(), dataPath: app.getPath('userData') }));
+  handle('app:info', () => ({ version: app.getVersion(), dataPath: app.getPath('userData'), demo: !!process.env.HEAVEN_DEMO }));
 }
+
+// A separate data folder (e.g. the demo copy) gets its own profile, so it can run next to the real app.
+if (process.env.HEAVEN_DATA_DIR) app.setPath('userData', path.resolve(process.env.HEAVEN_DATA_DIR));
 
 // Make sure only one copy runs so two windows never write the same database.
 if (!app.requestSingleInstanceLock()) {
@@ -110,7 +113,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    const dataDir = process.env.HEAVEN_DATA_DIR || app.getPath('userData');
+    const dataDir = app.getPath('userData');
     fs.mkdirSync(dataDir, { recursive: true });
     store = new Store(path.join(dataDir, 'heaven.db'));
     service = new Service(store);

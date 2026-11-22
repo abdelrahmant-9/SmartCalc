@@ -9,7 +9,9 @@
     "start": "vite build && electron .",
     "dist:win": "vite build && electron-builder --win",
     "dist:mac": "vite build && electron-builder --mac",
-    "test": "node --test test/*.test.cjs test/*.test.mjs"
+    "test": "node --test test/*.test.cjs test/*.test.mjs",
+    "demo": "cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/seed-demo.cjs demo-data && vite build && cross-env HEAVEN_DATA_DIR=demo-data HEAVEN_DEMO=1 electron .",
+    "demo:open": "vite build && cross-env HEAVEN_DATA_DIR=demo-data HEAVEN_DEMO=1 electron ."
   },
   "author": "Heaven",
   "license": "UNLICENSED",

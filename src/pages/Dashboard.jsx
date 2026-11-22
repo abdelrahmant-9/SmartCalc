@@ -117,7 +117,7 @@ export default function Dashboard({ navigate }) {
               <tbody>
                 {upcoming.slice(0, 10).map((b) => (
                   <tr key={b.id}>
-                    <td><div className="cell-title">{prettyDate(b.date).split(' ').slice(0, 3).join(' ')}</div></td>
+                    <td className="nowrap"><div className="cell-title">{prettyDate(b.date).split(' ').slice(0, 3).join(' ')}</div></td>
                     <td className="num">{time12(b.start_time)}</td>
                     <td>{b.bride_name}</td>
                     <td className="end"><StatusBadge status={b.status} /></td>
