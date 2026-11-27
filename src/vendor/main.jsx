@@ -6,7 +6,9 @@ import '@fontsource/ibm-plex-sans-arabic/500.css';
 import '@fontsource/ibm-plex-sans-arabic/600.css';
 import '@fontsource/ibm-plex-sans-arabic/700.css';
 import '../styles.css';
-import { brand, productLogo as logo } from '../lib/brand.js';
+import { applyTheme, brand, productLogo as logo } from '../lib/brand.js';
+
+applyTheme();
 import { VendorProvider } from './state.jsx';
 import Overview from './pages/Overview.jsx';
 import Customers from './pages/Customers.jsx';

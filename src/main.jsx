@@ -7,7 +7,9 @@ import '@fontsource/ibm-plex-sans-arabic/700.css';
 import './styles.css';
 import { AppProvider } from './lib/context.jsx';
 import App from './App.jsx';
-import { brand } from './lib/brand.js';
+import { applyTheme, brand } from './lib/brand.js';
+
+applyTheme();
 
 document.title = brand.productName;
 
