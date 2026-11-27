@@ -1,5 +1,5 @@
 // Receipts for thermal printers (80mm / 58mm) or A4, printed through a hidden iframe.
-import logo from '../assets/logo.png';
+import { brand, productLogo as logo } from './brand.js';
 import ar400 from '@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-400-normal.woff2';
 import ar600 from '@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-600-normal.woff2';
 import ar700 from '@fontsource/ibm-plex-sans-arabic/files/ibm-plex-sans-arabic-arabic-700-normal.woff2';
@@ -83,8 +83,8 @@ export function printReceipt(r) {
   </style></head><body>
   <div class="head">
     <img class="logo" src="${s.venueLogo || abs(logo)}" alt="">
-    <div class="brand">${esc((s.venueName || 'Heaven').toUpperCase())}</div>
-    ${(s.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY') ? `<div class="tag">${esc(s.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY')}</div>` : ''}
+    <div class="brand">${esc((s.venueName || brand.shortName).toUpperCase())}</div>
+    ${s.venueTagline ? `<div class="tag">${esc(s.venueTagline)}</div>` : ''}
     ${contact.length ? `<div class="contact">${contact.map((c) => `<span class="${/^[\d+\s-]+$/.test(c) ? 'n' : ''}">${esc(c)}</span>`).join(' · ')}</div>` : ''}
   </div>
   <div class="doc"><b>${esc(r.title)}</b>${r.number ? `<span>رقم <span class="n">${esc(r.number)}</span></span>` : ''}</div>

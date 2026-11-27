@@ -9,7 +9,7 @@ export function AppProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [settings, setSettings] = useState(null);
   const [license, setLicense] = useState(null);
-  const [branding, setBranding] = useState({ name: 'Heaven', tagline: '', logo: null });
+  const [branding, setBranding] = useState({ name: '', tagline: '', logo: null });
   const [version, setVersion] = useState(0);
   const [syncStatus, setSyncStatus] = useState(null);
   const [toasts, setToasts] = useState([]);

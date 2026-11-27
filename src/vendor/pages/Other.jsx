@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CircleCheck, Cloud, Copy, Download, FileSpreadsheet, Link2, Pencil, Plus, RefreshCw, TriangleAlert, Upload, Wallet } from 'lucide-react';
 import serverSql from '../../../supabase/license-server.sql?raw';
+import { brand } from '../../lib/brand.js';
 import { v } from '../vapi.js';
 import { useRows, useV } from '../state.jsx';
 import { money, num, startOfMonth, today, toCSV } from '../../lib/format.js';
@@ -122,7 +123,7 @@ export function VendorSettings() {
     try { const r = await v.pushAll(); refresh(); toast(r.fail ? `اترفع ${r.ok} وفشل ${r.fail}: ${r.error}` : `اترفع ${r.ok} عميل`, r.fail ? 'error' : 'success'); } catch (e) { toast(e.message, 'error'); }
     setBusy(false);
   };
-  const defaultTpl = 'أهلاً {name} 👋\nده مفتاح تفعيل Heaven Manager لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.';
+  const defaultTpl = `أهلاً {name} 👋\nده مفتاح تفعيل ${brand.productName} لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.`;
 
   return (
     <Page title="الإعدادات">

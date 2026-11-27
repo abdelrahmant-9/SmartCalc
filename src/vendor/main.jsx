@@ -6,7 +6,7 @@ import '@fontsource/ibm-plex-sans-arabic/500.css';
 import '@fontsource/ibm-plex-sans-arabic/600.css';
 import '@fontsource/ibm-plex-sans-arabic/700.css';
 import '../styles.css';
-import logo from '../assets/logo.png';
+import { brand, productLogo as logo } from '../lib/brand.js';
 import { VendorProvider } from './state.jsx';
 import Overview from './pages/Overview.jsx';
 import Customers from './pages/Customers.jsx';
@@ -29,7 +29,7 @@ function VendorApp() {
       <aside className="sidebar">
         <div className="brand">
           <img src={logo} alt="" />
-          <div><div className="brand-name">HEAVEN</div><div className="brand-sub">إدارة العملاء</div></div>
+          <div><div className="brand-name">{brand.shortName.toUpperCase()}</div><div className="brand-sub">إدارة العملاء</div></div>
         </div>
         <div className="nav-group">
           {NAV.map((n) => (
@@ -45,4 +45,5 @@ function VendorApp() {
   );
 }
 
+document.title = `${brand.vendorName} — إدارة العملاء`;
 createRoot(document.getElementById('root')).render(<StrictMode><VendorProvider><VendorApp /></VendorProvider></StrictMode>);

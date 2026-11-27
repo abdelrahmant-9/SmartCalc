@@ -4,10 +4,11 @@ import { v } from '../vapi.js';
 import { useRows, useV, statusOf, remainingLabel, daysLeft } from '../state.jsx';
 import { latin, ltr, money, num, today } from '../../lib/format.js';
 import Select from '../../components/Select.jsx';
+import { brand } from '../../lib/brand.js';
 import { Confirm, Empty, Field, Modal, MoneyInput, Notice, Page, Panel, Segmented } from '../../components/ui.jsx';
 
 const METHODS = ['كاش', 'فودافون كاش', 'إنستاباي', 'تحويل بنكي'];
-const DEFAULT_MSG = 'أهلاً {name} 👋\nده مفتاح تفعيل Heaven Manager لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.';
+const DEFAULT_MSG = `أهلاً {name} 👋\nده مفتاح تفعيل ${brand.productName} لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.`;
 
 export function waLink(phone, text) {
   const p = latin(phone || '').replace(/\D/g, '');

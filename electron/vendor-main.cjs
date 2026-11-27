@@ -1,4 +1,4 @@
-// Heaven Vendor: the developer's own app for managing customers, subscriptions and license keys.
+// Vendor app: the developer's own app for managing customers, subscriptions and license keys.
 // Runs only on the developer's machine (npm run vendor). The private signing key lives here and nowhere else.
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('node:path');
@@ -6,12 +6,19 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { Store } = require('./store.cjs');
 const L = require('./license.cjs');
+const brand = require('../brand.json');
+const { migrateUserData } = require('./brand-migrate.cjs');
 
 const TABLES = ['customers', 'licenses', 'payments', 'plans', 'settings'];
 const PUBLIC_FILE = path.join(__dirname, 'license-public.cjs');
 
-app.setName('Heaven Vendor');
-app.setPath('userData', process.env.HEAVEN_VENDOR_DIR ? path.resolve(process.env.HEAVEN_VENDOR_DIR) : path.join(app.getPath('appData'), 'Heaven Vendor'));
+app.setName(brand.vendorName);
+if (process.env.HEAVEN_VENDOR_DIR) app.setPath('userData', path.resolve(process.env.HEAVEN_VENDOR_DIR));
+else {
+  app.setPath('userData', path.join(app.getPath('appData'), brand.vendorName));
+  // The private signing key lives here: never leave it behind after a rename.
+  migrateUserData(app, brand.previousVendorNames, 'vendor-private-key.pem');
+}
 
 let win; let store;
 const keyFile = () => path.join(app.getPath('userData'), 'vendor-private-key.pem');
@@ -235,7 +242,7 @@ else {
     seed();
     registerIpc();
     win = new BrowserWindow({
-      width: 1360, height: 860, minWidth: 1100, minHeight: 700, title: 'Heaven Vendor — إدارة العملاء', backgroundColor: '#F6F0EB',
+      width: 1360, height: 860, minWidth: 1100, minHeight: 700, title: `${brand.vendorName} — إدارة العملاء`, backgroundColor: '#F6F0EB',
       autoHideMenuBar: true,
       ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 16 } } : {}),
       webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },

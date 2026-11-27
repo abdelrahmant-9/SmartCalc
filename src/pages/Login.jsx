@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../lib/context.jsx';
 import { Notice } from '../components/ui.jsx';
-import logo from '../assets/logo.png';
+import { brand, productLogo as logo } from '../lib/brand.js';
 
 export default function Login() {
   const { login, branding } = useApp();
@@ -32,12 +32,12 @@ export default function Login() {
           </label>
           {error && <Notice tone="danger">{error}</Notice>}
           <button className="btn btn-primary btn-lg btn-block" disabled={busy || !username || !password}>دخول</button>
-          <p className="login-foot">Heaven Manager</p>
+          <p className="login-foot">{brand.productName}{brand.company ? ` — ${brand.company}` : ''}</p>
         </form>
       </div>
       <div className="login-art" aria-hidden="true">
         <img src={branding?.logo || logo} alt="" />
-        <div className="word">{(branding?.name || 'Heaven').toUpperCase()}</div>
+        <div className="word">{(branding?.name || brand.shortName).toUpperCase()}</div>
         {branding?.tagline && <div className="tagline">{branding.tagline}</div>}
       </div>
     </div>

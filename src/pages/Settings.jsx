@@ -5,7 +5,7 @@ import { useAction, useApp, useData } from '../lib/context.jsx';
 import { dateTime, durationLabel, latin, num } from '../lib/format.js';
 import schemaSql from '../../supabase/schema.sql?raw';
 import { printReceipt } from '../lib/print.js';
-import defaultLogo from '../assets/logo.png';
+import { productLogo as defaultLogo } from '../lib/brand.js';
 import Combobox from '../components/Combobox.jsx';
 import Select from '../components/Select.jsx';
 import { Activity, Roles, Users } from './settings/Access.jsx';
@@ -99,9 +99,9 @@ function General() {
       <div className="cols-2">
         <Panel title="بيانات المكان">
           <div className="form-grid">
-            <Field label="اسم المكان"><input value={f.venueName} onChange={(e) => set('venueName', e.target.value)} /></Field>
+            <Field label="اسم المكان"><input value={f.venueName || ''} placeholder="بيظهر في البرنامج والإيصال" onChange={(e) => set('venueName', e.target.value)} /></Field>
             <Field label="العملة"><input value={f.currency} onChange={(e) => set('currency', e.target.value)} /></Field>
-            <Field label="السطر تحت الاسم" hint="بيظهر في شاشة الدخول والإيصال" span={2}><input dir="auto" value={f.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY'} onChange={(e) => set('venueTagline', e.target.value)} /></Field>
+            <Field label="السطر تحت الاسم" hint="بيظهر في شاشة الدخول والإيصال" span={2}><input dir="auto" value={f.venueTagline || ''} placeholder="اختياري" onChange={(e) => set('venueTagline', e.target.value)} /></Field>
             <Field label="اللوجو" span={2}>
               <div className="logo-pick">
                 <img src={f.venueLogo || defaultLogo} alt="" />

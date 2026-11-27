@@ -1,5 +1,8 @@
 // Business rules on top of the store: seeding, login, roles and permissions.
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const brand = require('../brand.json');
 const P = require('./permissions.cjs');
 const L = require('./license.cjs');
 const BUILT_IN = require('./license-public.cjs');
@@ -10,7 +13,7 @@ const CATALOG_TABLES = ['packages', 'extras', 'ticket_types', 'cafe_items'];
 
 const DEFAULT_SETTINGS = {
   id: 'app',
-  venueName: 'Heaven',
+  venueName: '',
   currency: 'ج.م',
   limitConcurrent: false,
   maxConcurrentBookings: 3,
@@ -59,6 +62,7 @@ class Service {
     this.server = server;
     this.now = now;
     this.refreshClockFloor();
+    this.keepHeavenBranding();
     if (!store.getKV('first_run')) store.setKV('first_run', now());
     this.seed();
   }
@@ -230,10 +234,25 @@ class Service {
     items.forEach(([name, category, price], i) => s.seed('cafe_items', { id: `seed-cafe-${i + 1}`, name, category, price, active: true }));
   }
 
+  // Heaven was the first venue, from before names and logos were settings: its logo was the app's.
+  // Write it into Heaven's own settings once, so renaming the product doesn't change what Heaven sees.
+  keepHeavenBranding() {
+    if (this.store.getKV('brand_v2')) return;
+    this.store.setKV('brand_v2', true);
+    const s = this.store.get('settings', 'app');
+    if (!s || s.venueLogo || !/^heaven$/i.test(String(s.venueName || '').trim())) return;
+    const file = path.join(__dirname, 'legacy', 'heaven-logo.png');
+    if (!fs.existsSync(file)) return;
+    const logo = `data:image/png;base64,${fs.readFileSync(file).toString('base64')}`;
+    this.store.put('settings', { ...s, venueLogo: logo, venueTagline: s.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY' }, null);
+  }
+
   // Shown on the login screen, so it needs no login.
   branding() {
     const s = this.settings();
-    return { name: s.venueName || 'Heaven', tagline: s.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY', logo: s.venueLogo || null };
+    let venue = '';
+    try { venue = this.licenseKey() && this.publicKey ? L.verifyLicense(this.licenseKey(), this.publicKey).venue || '' : ''; } catch { venue = ''; }
+    return { name: s.venueName || venue || brand.shortName, tagline: s.venueTagline || '', logo: s.venueLogo || null, product: brand.productName };
   }
 
   settings() {

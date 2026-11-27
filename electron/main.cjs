@@ -5,6 +5,8 @@ const { Store } = require('./store.cjs');
 const { Service } = require('./service.cjs');
 const { Sync } = require('./sync.cjs');
 const { checkOnline } = require('./license-online.cjs');
+const brand = require('../brand.json');
+const { migrateUserData } = require('./brand-migrate.cjs');
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
 let win = null;
@@ -20,7 +22,7 @@ function createWindow() {
     height: 860,
     minWidth: 1100,
     minHeight: 700,
-    title: process.env.HEAVEN_DEMO ? 'Heaven Manager — نسخة تجريبية' : 'Heaven Manager',
+    title: process.env.HEAVEN_DEMO ? `${brand.productName} — نسخة تجريبية` : brand.productName,
     backgroundColor: '#F6F0EB',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     autoHideMenuBar: true,
@@ -140,11 +142,13 @@ function registerIpc() {
     return parsed.rows.length;
   });
 
-  handle('app:info', () => ({ version: app.getVersion(), dataPath: app.getPath('userData'), demo: !!process.env.HEAVEN_DEMO }));
+  handle('app:info', () => ({ version: app.getVersion(), dataPath: app.getPath('userData'), demo: !!process.env.HEAVEN_DEMO, product: brand.productName }));
 }
 
 // A separate data folder (e.g. the demo copy) gets its own profile, so it can run next to the real app.
 if (process.env.HEAVEN_DATA_DIR) app.setPath('userData', path.resolve(process.env.HEAVEN_DATA_DIR));
+// After a rename, the data is still in the folder named after the old product name: bring it along.
+else migrateUserData(app, brand.previousNames, 'heaven.db');
 
 // ---------- license clock ----------
 // Running time is counted with a monotonic timer (performance.now), so changing the computer

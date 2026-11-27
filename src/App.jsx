@@ -13,7 +13,7 @@ import Settings_ from './pages/Settings.jsx';
 import Account from './pages/Account.jsx';
 import SyncIndicator from './components/SyncIndicator.jsx';
 import { BannerCtx, Notice } from './components/ui.jsx';
-import logo from './assets/logo.png';
+import { brand, productLogo as logo } from './lib/brand.js';
 
 const isMac = window.heaven?.platform === 'darwin';
 const MOD = isMac ? '⌘' : 'Ctrl+';
@@ -44,7 +44,7 @@ export default function App() {
   const { user, ready, logout, canAny, can, license, branding } = useApp();
   const [page, setPage] = useState('dashboard');
   const [demo, setDemo] = useState(false);
-  useEffect(() => { api.appInfo().then((i) => { setDemo(!!i.demo); if (i.demo) document.title = 'Heaven Manager — نسخة تجريبية'; }).catch(() => {}); }, []);
+  useEffect(() => { api.appInfo().then((i) => { setDemo(!!i.demo); if (i.demo) document.title = `${brand.productName} — نسخة تجريبية`; }).catch(() => {}); }, []);
 
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => !i.perms || canAny(...i.perms)) })).filter((g) => g.items.length);
   const flat = groups.flatMap((g) => g.items);
@@ -93,7 +93,7 @@ export default function App() {
         <div className="brand">
           <img src={brandLogo} alt="" />
           <div>
-            <div className="brand-name">{(branding?.name || 'Heaven').toUpperCase()}</div>
+            <div className="brand-name">{(branding?.name || brand.shortName).toUpperCase()}</div>
             <div className="brand-sub">{user.role_name}</div>
           </div>
         </div>

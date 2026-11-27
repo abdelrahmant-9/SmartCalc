@@ -1,6 +1,6 @@
 // Thin wrapper around the Electron IPC bridge. Every call resolves to data or throws an Error with an Arabic message.
 async function invoke(channel, ...args) {
-  if (!window.heaven) throw new Error('البرنامج يجب أن يعمل من داخل تطبيق Heaven Manager');
+  if (!window.heaven) throw new Error('البرنامج يجب أن يعمل من داخل التطبيق');
   const res = await window.heaven.invoke(channel, ...args);
   if (!res.ok) throw new Error(res.error);
   return res.data;
