@@ -11,33 +11,82 @@ test('seeds default admin and logs in', () => {
   const { svc } = mk();
   assert.throws(() => svc.login('admin', 'wrong'), /غير صحيحة/);
   const u = svc.login('admin', 'admin');
-  assert.equal(u.role, 'admin');
+  assert.equal(u.role, 'role-admin');
   assert.equal(u.password_hash, undefined, 'hash must never leave the main process');
 });
 
 test('employee permissions', () => {
   const { svc } = mk();
   svc.login('admin', 'admin');
-  svc.saveUser({ name: 'سارة', username: 'sara', password: '1234', role: 'employee' });
+  svc.saveUser({ name: 'سارة', username: 'sara', password: '1234', role: 'role-employee' });
   svc.logout();
   svc.login('sara', '1234');
-  assert.throws(() => svc.put('ticket_types', { name: 'x', price: 1 }), /للمدير فقط/);
-  assert.throws(() => svc.remove('bookings', 'any'), /للمدير فقط/);
+  assert.throws(() => svc.put('ticket_types', { name: 'x', price: 1 }), /ليس لديك صلاحية/);
+  assert.throws(() => svc.remove('bookings', 'any'), /ليس لديك صلاحية/);
   const pay = svc.put('payments', { booking_id: 'b1', amount: 500, date: '2026-11-21' });
-  assert.throws(() => svc.put('payments', { ...pay, amount: 1 }), /لا يمكن تعديل/);
+  assert.throws(() => svc.put('payments', { ...pay, amount: 1 }), /ليس لديك صلاحية/);
+  assert.throws(() => svc.put('payments', { booking_id: 'b1', amount: -100 }), /استرداد/);
   const b = svc.put('bookings', { bride_name: 'منى', date: '2026-11-21' });
   assert.ok(svc.put('bookings', { ...b, status: 'completed' }));
+  assert.throws(() => svc.put('bookings', { ...b, discount: 200 }), /خصم/);
   assert.ok(svc.list('users').every((u) => u.password_hash === undefined));
+  assert.equal(svc.me().role_name, 'موظف');
 });
 
-test('admin can block employee expenses', () => {
+test('employee role can be narrowed by the admin', () => {
   const { svc } = mk();
   svc.login('admin', 'admin');
-  svc.put('settings', { ...svc.settings(), allowEmployeeExpenses: false });
+  const emp = svc.get('roles', 'role-employee');
+  svc.put('roles', { ...emp, permissions: emp.permissions.filter((p) => p !== 'finance.expense') });
   svc.saveUser({ name: 'علي', username: 'ali', password: '1234', role: 'employee' });
   svc.logout();
   svc.login('ali', '1234');
-  assert.throws(() => svc.put('transactions', { type: 'out', amount: 10 }), /غير مسموح/);
+  assert.throws(() => svc.put('transactions', { type: 'out', amount: 10 }), /مصروف/);
+});
+
+test('custom roles: grant, limit, and no escalation', () => {
+  const { svc } = mk();
+  svc.login('admin', 'admin');
+  const cashier = svc.put('roles', { name: 'كاشير', permissions: ['cafe.sell', 'tickets.sell', 'dev.tools'] });
+  assert.deepEqual(cashier.permissions.sort(), ['cafe.sell', 'tickets.sell'], 'admin cannot hand out developer tools');
+  svc.saveUser({ name: 'علي', username: 'ali', password: '1234', role: cashier.id });
+  assert.throws(() => svc.remove('roles', cashier.id), /مستخدم/);
+  assert.throws(() => svc.put('roles', { id: 'role-admin', name: 'x', permissions: [] }), /ثابتة/);
+  assert.throws(() => svc.saveUser({ name: 'x', username: 'x2', password: '1234', role: 'role-developer' }), /المطور فقط/);
+  svc.logout();
+  svc.login('ali', '1234');
+  assert.ok(svc.put('cafe_orders', { date: '2026-11-21', total: 40, items: [] }));
+  assert.throws(() => svc.put('bookings', { bride_name: 'x' }), /إضافة حجز/);
+  assert.throws(() => svc.put('transactions', { type: 'out', amount: 10 }), /مصروف/);
+  svc.logout(); svc.login('admin', 'admin');
+  const lead = svc.put('roles', { name: 'مشرف', permissions: ['settings.roles', 'cafe.sell'] });
+  svc.saveUser({ name: 'مشرف', username: 'lead', password: '1234', role: lead.id });
+  svc.logout(); svc.login('lead', '1234');
+  assert.throws(() => svc.put('roles', { name: 'هاكر', permissions: ['finance.view_all'] }), /ليست عندك/);
+});
+
+test('developer account: full access, admin can only switch it off', () => {
+  const { svc } = mk();
+  const dev = svc.login('developer', 'developer');
+  assert.ok(dev.permissions.includes('dev.tools'));
+  svc.logout();
+  svc.login('admin', 'admin');
+  assert.ok(!svc.me().permissions.includes('dev.tools'));
+  assert.throws(() => svc.remove('users', 'seed-developer'), /لا يُحذف/);
+  svc.saveUser({ id: 'seed-developer', name: 'x', username: 'hacked', password: '999999', role: 'role-employee', active: false });
+  svc.logout();
+  assert.throws(() => svc.login('developer', 'developer'), /موقوف/);
+  assert.throws(() => svc.login('hacked', '999999'), /غير صحيحة/);
+});
+
+test('activity log records who changed what', () => {
+  const { svc } = mk();
+  svc.login('admin', 'admin');
+  svc.put('bookings', { bride_name: 'ريم', date: '2026-11-22' });
+  const log = svc.activity({ limit: 5 });
+  assert.equal(log[0].tbl, 'bookings');
+  assert.equal(log[0].action, 'create');
+  assert.equal(log[0].user, 'المدير');
 });
 
 test('date range filtering', () => {
@@ -100,7 +149,7 @@ test('two devices sync through the server', async () => {
     a.store.setKV('sync_config', cfg); b.store.setKV('sync_config', cfg);
 
     a.svc.login('admin', 'admin');
-    a.svc.changePassword('admin', 'secret');
+    a.svc.changePassword('admin', 'secret1');
     const booking = a.svc.put('bookings', { bride_name: 'ريم', date: '2026-11-22', total: 2000 });
     a.svc.put('payments', { booking_id: booking.id, amount: 500, date: '2026-11-21' });
     await syncA.run();
@@ -111,7 +160,7 @@ test('two devices sync through the server', async () => {
     assert.equal(b.store.get('bookings', booking.id).bride_name, 'ريم');
     // The changed admin password reached device B, and the seeded default did not overwrite it.
     assert.throws(() => b.svc.login('admin', 'admin'));
-    assert.ok(b.svc.login('admin', 'secret'));
+    assert.ok(b.svc.login('admin', 'secret1'));
     assert.equal(b.svc.list('payments').length, 1);
 
     // Edit on B, delete on A later -> delete wins (newer).

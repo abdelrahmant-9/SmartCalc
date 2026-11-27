@@ -40,6 +40,8 @@ export const num = (v) => {
 export function latin(v) {
   return String(v ?? '').replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) & 0xf));
 }
+// Keeps a date or code left-to-right inside an Arabic sentence (otherwise 2026-12-27 shows as 27-12-2026).
+export const ltr = (v) => (v === null || v === undefined || v === '' ? '' : `\u2066${v}\u2069`);
 export const money = (v, currency = 'ج.م') => `${num(v)} ${currency}`;
 
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];

@@ -1,6 +1,6 @@
 // Thin wrapper around the Electron IPC bridge. Every call resolves to data or throws an Error with an Arabic message.
 async function invoke(channel, ...args) {
-  if (!window.heaven) throw new Error('البرنامج يجب أن يعمل من داخل تطبيق Heaven Manager');
+  if (!window.heaven) throw new Error('البرنامج يجب أن يعمل من داخل التطبيق');
   const res = await window.heaven.invoke(channel, ...args);
   if (!res.ok) throw new Error(res.error);
   return res.data;
@@ -17,6 +17,17 @@ export const api = {
   put: (tbl, obj) => invoke('db:put', tbl, obj),
   remove: (tbl, id) => invoke('db:remove', tbl, id),
   saveUser: (u) => invoke('users:save', u),
+  catalogue: () => invoke('auth:catalogue'),
+  license: () => invoke('license:status'),
+  activateLicense: (k) => invoke('license:activate', k),
+  activateLicenseFile: () => invoke('license:activateFile'),
+  checkLicense: () => invoke('license:check'),
+  removeLicense: () => invoke('license:remove'),
+  branding: () => invoke('app:branding'),
+  updateProfile: (d) => invoke('auth:updateProfile', d),
+  activity: (opts) => invoke('audit:list', opts),
+  devInfo: () => invoke('dev:info'),
+  devAction: (a) => invoke('dev:action', a),
 
   syncConfig: () => invoke('sync:getConfig'),
   setSyncConfig: (c) => invoke('sync:setConfig', c),

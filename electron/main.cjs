@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const { Store } = require('./store.cjs');
 const { Service } = require('./service.cjs');
 const { Sync } = require('./sync.cjs');
+const { checkOnline } = require('./license-online.cjs');
+const brand = require('../brand.json');
+const { migrateUserData } = require('./brand-migrate.cjs');
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
 let win = null;
@@ -19,7 +22,7 @@ function createWindow() {
     height: 860,
     minWidth: 1100,
     minHeight: 700,
-    title: 'Heaven Manager',
+    title: process.env.HEAVEN_DEMO ? `${brand.productName} — نسخة تجريبية` : brand.productName,
     backgroundColor: '#F6F0EB',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     autoHideMenuBar: true,
@@ -63,9 +66,50 @@ function registerIpc() {
   handle('db:put', (tbl, obj) => { const r = service.put(tbl, obj); sync.nudge(); return r; });
   handle('db:remove', (tbl, id) => { const r = service.remove(tbl, id); sync.nudge(); return r; });
   handle('users:save', (data) => { const r = service.saveUser(data); sync.nudge(); return r; });
+  handle('auth:catalogue', () => service.catalogue());
+  handle('license:status', () => service.license());
+  handle('license:check', () => runLicenseCheck(true));
+  handle('license:activateFile', async () => {
+    service.requireAny(['settings.general', 'dev.tools']);
+    const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Heaven License', extensions: ['hvnkey', 'txt'] }] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const text = fs.readFileSync(r.filePaths[0], 'utf8');
+    const key = (text.match(/HVN1-[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+/) || [])[0];
+    if (!key) throw new Error('الملف ده مفيهوش مفتاح ترخيص');
+    const res = service.activateLicense(key);
+    sync.nudge();
+    return res;
+  });
+  handle('license:activate', (key) => { const r = service.activateLicense(key); sync.nudge(); return r; });
+  handle('license:remove', () => { const r = service.removeLicense(); sync.nudge(); return r; });
+  handle('app:branding', () => service.branding());
+  handle('auth:updateProfile', (d) => { const r = service.updateProfile(d); sync.nudge(); return r; });
+  handle('audit:list', (opts) => service.activity(opts));
 
-  handle('sync:getConfig', () => { service.requireAdmin(); return sync.publicConfig(); });
-  handle('sync:setConfig', (cfg) => { service.requireAdmin(); return sync.setConfig(cfg); });
+  // ---------- developer tools ----------
+  handle('dev:info', () => {
+    service.require('dev.tools');
+    const st = store.stats();
+    return {
+      version: app.getVersion(), electron: process.versions.electron, node: process.versions.node, chrome: process.versions.chrome,
+      sqlite: store.db.prepare('SELECT sqlite_version() AS v').get().v,
+      platform: `${process.platform} ${process.arch}`, dataPath: app.getPath('userData'),
+      deviceId: store.getKV('device_id'), syncCursor: store.getKV('sync_cursor', 0), sync: sync.getStatus(), ...st,
+    };
+  });
+  handle('dev:action', async (action) => {
+    service.require('dev.tools');
+    if (action === 'devtools') { win.webContents.openDevTools({ mode: 'detach' }); return 'تم فتح أدوات المطور'; }
+    if (action === 'resync-pull') { store.setKV('sync_cursor', 0); await sync.run(); return 'تمت إعادة سحب كل البيانات من السيرفر'; }
+    if (action === 'resync-push') { store.markAllDirty(); await sync.run(); return 'تم تجهيز كل السجلات لإعادة الرفع'; }
+    if (action === 'vacuum') { store.vacuum(); return 'تم ضغط قاعدة البيانات'; }
+    if (action === 'reload') { win.webContents.reload(); return 'reload'; }
+    if (action === 'open-data') { await shell.openPath(app.getPath('userData')); return 'تم فتح فولدر البيانات'; }
+    throw new Error('أمر غير معروف');
+  });
+
+  handle('sync:getConfig', () => { service.require('settings.sync'); return sync.publicConfig(); });
+  handle('sync:setConfig', (cfg) => { service.require('settings.sync'); return sync.setConfig(cfg); });
   handle('sync:status', () => sync.getStatus());
   handle('sync:now', async () => { await sync.run(); return sync.getStatus(); });
 
@@ -77,7 +121,7 @@ function registerIpc() {
   });
 
   handle('backup:export', async () => {
-    service.requireAdmin();
+    service.require('settings.backup');
     const stamp = new Date().toISOString().slice(0, 10);
     const r = await dialog.showSaveDialog(win, {
       defaultPath: `heaven-backup-${stamp}.json`, filters: [{ name: 'Backup', extensions: ['json'] }],
@@ -88,7 +132,7 @@ function registerIpc() {
   });
 
   handle('backup:import', async () => {
-    service.requireAdmin();
+    service.require('settings.backup');
     const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Backup', extensions: ['json'] }] });
     if (r.canceled || !r.filePaths[0]) return null;
     const parsed = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8'));
@@ -98,7 +142,45 @@ function registerIpc() {
     return parsed.rows.length;
   });
 
-  handle('app:info', () => ({ version: app.getVersion(), dataPath: app.getPath('userData') }));
+  handle('app:info', () => ({ version: app.getVersion(), dataPath: app.getPath('userData'), demo: !!process.env.HEAVEN_DEMO, product: brand.productName }));
+}
+
+// A separate data folder (e.g. the demo copy) gets its own profile, so it can run next to the real app.
+if (process.env.HEAVEN_DATA_DIR) app.setPath('userData', path.resolve(process.env.HEAVEN_DATA_DIR));
+// After a rename, the data is still in the folder named after the old product name: bring it along.
+else migrateUserData(app, brand.previousNames, 'heaven.db');
+
+// ---------- license clock ----------
+// Running time is counted with a monotonic timer (performance.now), so changing the computer
+// clock neither adds nor removes time. An online check runs at start, every 30 minutes, and right
+// after the connection comes back.
+let licenseBusy = false;
+async function runLicenseCheck(manual = false) {
+  if (licenseBusy || !service.publicKey) return service.license();
+  licenseBusy = true;
+  try {
+    const res = await checkOnline({ server: service.server, cid: service.licenseCid() });
+    const st = service.recordOnline(res);
+    send('license:changed', st);
+    return st;
+  } catch (e) {
+    if (manual) throw e;
+    return service.license();
+  } finally { licenseBusy = false; }
+}
+
+function startLicenseClock() {
+  const { performance } = require('node:perf_hooks');
+  let lastTick = performance.now();
+  setInterval(() => {
+    const t = performance.now();
+    service.tick(Math.min(t - lastTick, 5 * 60000)); // a sleeping laptop doesn't count as running
+    lastTick = t;
+    const st = service.license();
+    send('license:changed', st);
+  }, 60000);
+  setTimeout(() => runLicenseCheck(), 5000);
+  setInterval(() => runLicenseCheck(), 30 * 60000);
 }
 
 // Make sure only one copy runs so two windows never write the same database.
@@ -110,17 +192,18 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
-    const dataDir = process.env.HEAVEN_DATA_DIR || app.getPath('userData');
+    const dataDir = app.getPath('userData');
     fs.mkdirSync(dataDir, { recursive: true });
     store = new Store(path.join(dataDir, 'heaven.db'));
     service = new Service(store);
     sync = new Sync(store, {
-      onChange: () => send('data:changed'),
+      onChange: () => { service.refreshClockFloor(); send('data:changed'); },
       onStatus: (s) => send('sync:status', s),
     });
     registerIpc();
     createWindow();
     sync.start();
+    startLicenseClock();
 
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   });

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { Inbox, Info, TriangleAlert, X } from 'lucide-react';
 import { BOOKING_STATUS } from '../lib/finance.js';
 import { num } from '../lib/format.js';
+import Select from './Select.jsx';
 
 // Banner (e.g. "change default password") shown at the top of every page.
 export const BannerCtx = createContext(null);
@@ -95,6 +96,20 @@ export function StatusBadge({ status }) {
   return <span className={`status status-${s.tone}`}>{s.label}</span>;
 }
 
+// Render long lists in pages so a year of data stays fast; resets when `resetKey` changes.
+export function useShowMore(rows, step = 100, resetKey = '') {
+  const [n, setN] = useState(step);
+  useEffect(() => { setN(step); }, [resetKey, step]);
+  const footer = rows.length > n ? (
+    <div className="more-row">
+      <span>معروض {num(n)} من {num(rows.length)}</span>
+      <button className="btn btn-sm" onClick={() => setN(n + step * 2)}>عرض المزيد</button>
+      <button className="btn btn-sm btn-quiet" onClick={() => setN(rows.length)}>عرض الكل</button>
+    </div>
+  ) : null;
+  return [rows.length > n ? rows.slice(0, n) : rows, footer];
+}
+
 export function Empty({ icon: Icon = Inbox, children = 'لا توجد بيانات' }) {
   return <div className="empty"><Icon />{children}</div>;
 }
@@ -157,17 +172,15 @@ export function MoneyInput({ value, onChange, ...rest }) {
 
 export function MethodSelect({ value, onChange, methods }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
-      {(methods || ['كاش']).map((m) => <option key={m} value={m}>{m}</option>)}
-    </select>
+    <Select value={value} onChange={onChange} options={methods?.length ? methods : ['كاش']} aria-label="طريقة الدفع" />
   );
 }
 
-export function Switch({ label, desc, checked, onChange }) {
+export function Switch({ label, desc, checked, onChange, disabled }) {
   return (
-    <label className="switch">
+    <label className={`switch ${disabled ? 'disabled' : ''}`}>
       <span className="switch-text"><strong>{label}</strong>{desc && <span>{desc}</span>}</span>
-      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" checked={!!checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className="switch-track"><span className="switch-thumb" /></span>
     </label>
   );

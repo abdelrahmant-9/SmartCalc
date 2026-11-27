@@ -1,15 +1,19 @@
 {
   "name": "heaven-manager",
   "version": "1.0.0",
-  "description": "نظام إدارة حجوزات وحسابات Heaven - لوكيشن تصوير العرائس",
+  "description": "رواق — نظام إدارة القاعات واللوكيشنز: الحجوزات، الكافيه، التذاكر، والحسابات",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "build": "vite build",
     "start": "vite build && electron .",
-    "dist:win": "vite build && electron-builder --win",
-    "dist:mac": "vite build && electron-builder --mac",
-    "test": "node --test test/*.test.cjs"
+    "dist:win": "node scripts/apply-brand.cjs && vite build && electron-builder --win",
+    "dist:mac": "node scripts/apply-brand.cjs && vite build && electron-builder --mac",
+    "test": "node --test test/*.test.cjs test/*.test.mjs",
+    "demo": "cross-env ELECTRON_RUN_AS_NODE=1 electron scripts/seed-demo.cjs demo-data && vite build && cross-env HEAVEN_DATA_DIR=demo-data HEAVEN_DEMO=1 electron .",
+    "demo:open": "vite build && cross-env HEAVEN_DATA_DIR=demo-data HEAVEN_DEMO=1 electron .",
+    "vendor": "vite build && electron electron/vendor-main.cjs",
+    "brand": "node scripts/apply-brand.cjs"
   },
   "author": "Heaven",
   "license": "UNLICENSED",
@@ -26,20 +30,23 @@
     "vite": "^8.3.8",
     "wait-on": "^9.5.1"
   },
-  "productName": "Heaven Manager",
+  "productName": "Rawaq",
   "private": true,
   "build": {
-    "appId": "com.heaven.manager",
-    "productName": "Heaven Manager",
+    "appId": "com.rawaq.app",
+    "productName": "Rawaq",
     "directories": {
       "output": "release",
       "buildResources": "build"
     },
     "files": [
       "dist/**",
-      "electron/**",
       "build/icon.png",
-      "package.json"
+      "package.json",
+      "electron/**",
+      "!electron/vendor-main.cjs",
+      "!dist/vendor.html",
+      "!dist/assets/vendor-*"
     ],
     "win": {
       "target": [
@@ -56,7 +63,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Heaven Manager"
+      "shortcutName": "Rawaq"
     },
     "mac": {
       "target": [

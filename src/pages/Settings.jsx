@@ -1,28 +1,42 @@
 import { useEffect, useState } from 'react';
-import { Copy, Download, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, Pencil, Plus, Printer, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { useAction, useApp, useData } from '../lib/context.jsx';
 import { dateTime, durationLabel, latin, num } from '../lib/format.js';
 import schemaSql from '../../supabase/schema.sql?raw';
+import { printReceipt } from '../lib/print.js';
+import { productLogo as defaultLogo } from '../lib/brand.js';
+import Combobox from '../components/Combobox.jsx';
+import Select from '../components/Select.jsx';
+import { Activity, Roles, Users } from './settings/Access.jsx';
+import Developer from './settings/Developer.jsx';
+import License from './settings/License.jsx';
 import { Confirm, Empty, Field, Modal, MoneyInput, Page, Panel, Switch, Tabs } from '../components/ui.jsx';
 
 const TABS = [
-  { id: 'general', label: 'عام' },
-  { id: 'packages', label: 'الباكدجات' },
-  { id: 'extras', label: 'الإضافات' },
-  { id: 'tickets', label: 'التذاكر' },
-  { id: 'menu', label: 'المنيو' },
-  { id: 'users', label: 'المستخدمين' },
-  { id: 'sync', label: 'المزامنة' },
-  { id: 'backup', label: 'النسخ الاحتياطي' },
+  { id: 'general', label: 'عام', perm: 'settings.general' },
+  { id: 'packages', label: 'الباكدجات', perm: 'settings.catalog' },
+  { id: 'extras', label: 'الإضافات', perm: 'settings.catalog' },
+  { id: 'tickets', label: 'التذاكر', perm: 'settings.catalog' },
+  { id: 'menu', label: 'المنيو', perm: 'settings.catalog' },
+  { id: 'users', label: 'المستخدمين', perm: 'settings.users' },
+  { id: 'roles', label: 'الصلاحيات', perm: 'settings.roles' },
+  { id: 'activity', label: 'سجل النشاط', perm: 'audit.view' },
+  { id: 'sync', label: 'المزامنة', perm: 'settings.sync' },
+  { id: 'backup', label: 'النسخ الاحتياطي', perm: 'settings.backup' },
+  { id: 'license', label: 'الترخيص', perm: 'settings.general' },
+  { id: 'developer', label: 'المطور', perm: 'dev.tools' },
 ];
 
 const PRICING = { fixed: 'سعر ثابت', hourly: 'بالساعة', custom: 'يحدد لكل حجز' };
 
 export default function Settings() {
-  const [tab, setTab] = useState('general');
+  const { can } = useApp();
+  const tabs = TABS.filter((t) => can(t.perm) || (t.id === 'license' && can('dev.tools')));
+  const [picked, setTab] = useState(() => { const t = sessionStorage.getItem('settingsTab'); sessionStorage.removeItem('settingsTab'); return t || tabs[0]?.id; });
+  const tab = tabs.some((t) => t.id === picked) ? picked : tabs[0]?.id;
   return (
-    <Page title="الإعدادات" tabs={<Tabs tabs={TABS} value={tab} onChange={setTab} />}>
+    <Page title="الإعدادات" tabs={<Tabs tabs={tabs} value={tab} onChange={setTab} />}>
       {tab === 'general' && <General />}
       {tab === 'packages' && (
         <Crud tbl="packages" title="باكدجات التصوير" newLabel="باكدج" defaults={{ pricing_type: 'fixed', price: 0, duration_minutes: 60 }}
@@ -47,6 +61,10 @@ export default function Settings() {
           fields={[{ key: 'name', label: 'الصنف' }, { key: 'category', label: 'القسم', suggest: true }, { key: 'price', label: 'السعر', type: 'money' }]} />
       )}
       {tab === 'users' && <Users />}
+      {tab === 'roles' && <Roles />}
+      {tab === 'activity' && <Activity />}
+      {tab === 'license' && <License />}
+      {tab === 'developer' && <Developer />}
       {tab === 'sync' && <SyncSettings />}
       {tab === 'backup' && <Backup />}
     </Page>
@@ -63,26 +81,67 @@ function General() {
   const listField = (k) => (f[k] || []).join('، ');
   const parseList = (v) => v.split(/[,،\n]/).map((x) => x.trim()).filter(Boolean);
   const save = () => act(() => api.put('settings', { ...f, id: 'app' }), 'تم حفظ الإعدادات').catch(() => {});
+  // Logos are stored inside the settings record (and synced), so shrink them to a small square first.
+  const pickLogo = (file) => {
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      const size = 256; const c = document.createElement('canvas'); c.width = size; c.height = size;
+      const ctx = c.getContext('2d'); const s = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      set('venueLogo', c.toDataURL('image/png')); URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  };
 
   return (
     <>
       <div className="cols-2">
         <Panel title="بيانات المكان">
           <div className="form-grid">
-            <Field label="اسم المكان"><input value={f.venueName} onChange={(e) => set('venueName', e.target.value)} /></Field>
+            <Field label="اسم المكان"><input value={f.venueName || ''} placeholder="بيظهر في البرنامج والإيصال" onChange={(e) => set('venueName', e.target.value)} /></Field>
             <Field label="العملة"><input value={f.currency} onChange={(e) => set('currency', e.target.value)} /></Field>
-            <Field label="أقصى عدد حجوزات في نفس التوقيت" hint="يظهر تنبيه عند تجاوزه">
-              <input type="number" min="1" value={f.maxConcurrentBookings} onChange={(e) => set('maxConcurrentBookings', Number(e.target.value))} />
+            <Field label="السطر تحت الاسم" hint="بيظهر في شاشة الدخول والإيصال" span={2}><input dir="auto" value={f.venueTagline || ''} placeholder="اختياري" onChange={(e) => set('venueTagline', e.target.value)} /></Field>
+            <Field label="اللوجو" span={2}>
+              <div className="logo-pick">
+                <img src={f.venueLogo || defaultLogo} alt="" />
+                <label className="btn btn-sm">تغيير اللوجو<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => pickLogo(e.target.files?.[0])} /></label>
+                {f.venueLogo && <button type="button" className="btn btn-sm btn-quiet" onClick={() => set('venueLogo', null)}>رجوع للافتراضي</button>}
+              </div>
             </Field>
-            <Field label="نص أسفل الإيصال"><input value={f.receiptFooter} onChange={(e) => set('receiptFooter', e.target.value)} /></Field>
           </div>
         </Panel>
-        <Panel title="صلاحيات الموظف">
-          <Switch label="تعديل سعر الحجز" desc="كتابة سعر نهائي مختلف عن سعر الباكدج" checked={f.allowEmployeePriceEdit} onChange={(v) => set('allowEmployeePriceEdit', v)} />
-          <Switch label="عمل خصم" desc="في الحجوزات وطلبات الكافيه" checked={f.allowEmployeeDiscount} onChange={(v) => set('allowEmployeeDiscount', v)} />
-          <Switch label="تسجيل مصروفات" desc="المصروفات تظهر باسم الموظف في الحسابات" checked={f.allowEmployeeExpenses} onChange={(v) => set('allowEmployeeExpenses', v)} />
+        <Panel title="الحجوزات في نفس التوقيت">
+          <Switch label="تحديد حد أقصى" desc={f.limitConcurrent ? `حد أقصى ${f.maxConcurrentBookings || 1} حجز في نفس الوقت` : 'بدون حد — أي عدد من الحجوزات في نفس الوقت'}
+            checked={f.limitConcurrent} onChange={(v) => set('limitConcurrent', v)} />
+          {f.limitConcurrent && (
+            <>
+              <div className="form-grid" style={{ padding: '12px 0' }}>
+                <Field label="أقصى عدد حجوزات في نفس التوقيت">
+                  <input type="number" min="1" value={f.maxConcurrentBookings} onChange={(e) => set('maxConcurrentBookings', Math.max(1, Number(e.target.value) || 1))} />
+                </Field>
+              </div>
+              <Switch label="منع الحجز عند التجاوز" desc={f.blockOverLimit ? 'الحجز مش هيتسجل (إلا لصاحب صلاحية التجاوز)' : 'تنبيه بس والموظف يقرر'}
+                checked={f.blockOverLimit} onChange={(v) => set('blockOverLimit', v)} />
+            </>
+          )}
         </Panel>
       </div>
+      <Panel title="الإيصال" actions={<button className="btn btn-sm" onClick={() => printReceipt({
+        settings: f, title: 'فاتورة كافيه', number: '12', meta: [['التاريخ', '2026-11-23'], ['الوقت', '6:30 م'], ['الكاشير', 'تجربة']],
+        items: [{ name: 'قهوة تركي', qty: 2, price: 40 }, { name: 'ليمون نعناع', qty: 1, price: 50 }], grand: ['الإجمالي', 130], payment: 'كاش',
+      })}><Printer />طباعة تجريبية</button>}>
+        <div className="form-grid">
+          <Field label="مقاس الورق">
+            <Select value={f.receiptPaper || '80mm'} onChange={(v) => set('receiptPaper', v)} options={[
+              { value: '80mm', label: 'طابعة فواتير 80mm' }, { value: '58mm', label: 'طابعة فواتير 58mm' }, { value: 'A4', label: 'ورق A4' },
+            ]} />
+          </Field>
+          <Field label="تليفون المكان"><input dir="ltr" value={f.venuePhone || ''} onChange={(e) => set('venuePhone', latin(e.target.value))} /></Field>
+          <Field label="العنوان"><input value={f.venueAddress || ''} onChange={(e) => set('venueAddress', e.target.value)} /></Field>
+          <Field label="رسالة آخر الإيصال"><input value={f.receiptFooter || ''} onChange={(e) => set('receiptFooter', e.target.value)} /></Field>
+        </div>
+      </Panel>
       <Panel title="القوائم" meta="افصل بين العناصر بفاصلة">
         <div className="form-grid">
           <Field label="طرق الدفع" span={2}><input defaultValue={listField('paymentMethods')} onBlur={(e) => set('paymentMethods', parseList(e.target.value))} /></Field>
@@ -159,14 +218,11 @@ function Crud({ tbl, title, fields, defaults, newLabel }) {
                 {f.type === 'money' ? <MoneyInput value={edit[f.key]} onChange={(v) => setEdit({ ...edit, [f.key]: v })} />
                   : f.type === 'number' ? <input type="number" min="0" value={edit[f.key] ?? ''} onChange={(e) => setEdit({ ...edit, [f.key]: Number(e.target.value) })} />
                     : f.type === 'select' ? (
-                      <select value={edit[f.key]} onChange={(e) => setEdit({ ...edit, [f.key]: e.target.value })}>
-                        {Object.entries(f.options).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                      </select>
+                      <Select value={edit[f.key]} onChange={(v) => setEdit({ ...edit, [f.key]: v })} options={Object.entries(f.options).map(([value, label]) => ({ value, label }))} />
                     ) : (
-                      <>
-                        <input autoFocus={f.key === 'name'} list={f.suggest ? `sug-${f.key}` : undefined} value={edit[f.key] || ''} onChange={(e) => setEdit({ ...edit, [f.key]: e.target.value })} />
-                        {f.suggest && <datalist id={`sug-${f.key}`}>{suggestions(f.key).map((s) => <option key={s} value={s} />)}</datalist>}
-                      </>
+                      f.suggest
+                        ? <Combobox value={edit[f.key] || ''} onChange={(v) => setEdit({ ...edit, [f.key]: v })} options={suggestions(f.key)} newLabel="قسم جديد" />
+                        : <input autoFocus={f.key === 'name'} value={edit[f.key] || ''} onChange={(e) => setEdit({ ...edit, [f.key]: e.target.value })} />
                     )}
               </Field>
             ))}
@@ -174,75 +230,6 @@ function Crud({ tbl, title, fields, defaults, newLabel }) {
         </Modal>
       )}
       {confirm && <Confirm title="حذف" confirmText="حذف" message={`حذف "${confirm.name}"؟ الحجوزات والفواتير السابقة لن تتأثر.`} onClose={() => setConfirm(null)} onConfirm={() => act(() => api.remove(tbl, confirm.id), 'تم الحذف')} />}
-    </Panel>
-  );
-}
-
-function Users() {
-  const { user: me } = useApp();
-  const act = useAction();
-  const [users] = useData('users');
-  const [edit, setEdit] = useState(null);
-  const [confirm, setConfirm] = useState(null);
-
-  const save = async () => {
-    try { await act(() => api.saveUser(edit), 'تم حفظ المستخدم'); setEdit(null); } catch { /* toast */ }
-  };
-
-  return (
-    <Panel body={false} title="المستخدمين" meta={users.length}
-      actions={<button className="btn btn-primary btn-sm" onClick={() => setEdit({ role: 'employee', active: true, name: '', username: '', password: '' })}><Plus />مستخدم</button>}>
-      <table className="table">
-        <thead><tr><th>الاسم</th><th>اسم الدخول</th><th>الصلاحية</th><th>التليفون</th><th>الحالة</th><th /></tr></thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id} className={u.active ? '' : 'inactive'}>
-              <td>
-                <div className="row" style={{ flexWrap: 'nowrap' }}>
-                  <div className="avatar">{(u.name || '?').trim().slice(0, 1)}</div>
-                  <span className="cell-title">{u.name}</span>{u.id === me.id && <span className="tag">أنت</span>}
-                </div>
-              </td>
-              <td className="mono">{u.username}</td>
-              <td>{u.role === 'admin' ? <span className="tag tag-brand">مدير</span> : <span className="tag">موظف</span>}</td>
-              <td className="mono muted">{latin(u.phone) || '—'}</td>
-              <td><span className={`status ${u.active ? 'status-ok' : 'status-muted'}`}>{u.active ? 'نشط' : 'موقوف'}</span></td>
-              <td className="actions">
-                <div>
-                  <button className="icon-btn" title="تعديل" onClick={() => setEdit({ ...u, password: '' })}><Pencil /></button>
-                  {u.id !== me.id && <button className="icon-btn danger" title="حذف" onClick={() => setConfirm(u)}><Trash2 /></button>}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {edit && (
-        <Modal title={edit.id ? edit.name : 'مستخدم جديد'} onClose={() => setEdit(null)} footer={(
-          <>
-            <label className="check"><input type="checkbox" checked={edit.active} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} />الحساب نشط</label>
-            <span className="spacer" />
-            <button className="btn" onClick={() => setEdit(null)}>إلغاء</button>
-            <button className="btn btn-primary" onClick={save}>حفظ</button>
-          </>
-        )}>
-          <div className="form-grid">
-            <Field label="الاسم"><input autoFocus value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} /></Field>
-            <Field label="اسم الدخول"><input dir="ltr" value={edit.username} onChange={(e) => setEdit({ ...edit, username: e.target.value })} /></Field>
-            <Field label="كلمة المرور" hint={edit.id ? 'اتركها فارغة للإبقاء على الحالية' : null}>
-              <input type="password" value={edit.password} onChange={(e) => setEdit({ ...edit, password: e.target.value })} />
-            </Field>
-            <Field label="الصلاحية">
-              <select value={edit.role} onChange={(e) => setEdit({ ...edit, role: e.target.value })}>
-                <option value="employee">موظف</option>
-                <option value="admin">مدير</option>
-              </select>
-            </Field>
-            <Field label="التليفون"><input dir="ltr" value={edit.phone || ''} onChange={(e) => setEdit({ ...edit, phone: latin(e.target.value) })} /></Field>
-          </div>
-        </Modal>
-      )}
-      {confirm && <Confirm title="حذف مستخدم" confirmText="حذف" message={`حذف ${confirm.name}؟ عملياته السابقة تظل محفوظة.`} onClose={() => setConfirm(null)} onConfirm={() => act(() => api.remove('users', confirm.id), 'تم الحذف')} />}
     </Panel>
   );
 }

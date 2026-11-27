@@ -8,17 +8,19 @@ import { Confirm, Empty, Metric, Metrics, MethodSelect, MoneyInput, Page, Panel,
 import { RangePicker, TransactionForm } from './Finance.jsx';
 
 export default function Cafe() {
-  const [tab, setTab] = useState('pos');
-  const { isAdmin, settings } = useApp();
+  const { can: canDo } = useApp();
+  const tabs = [canDo('cafe.sell') && { id: 'pos', label: 'الكاشير' }, canDo('cafe.accounts') && { id: 'accounts', label: 'حسابات الكافيه' }].filter(Boolean);
+  const [tab, setTab] = useState(tabs[0]?.id || 'pos');
+  const { can } = useApp();
   const [form, setForm] = useState(null);
-  const canExpense = isAdmin || settings.allowEmployeeExpenses;
+  const canExpense = can('finance.expense');
   return (
     <Page
       title="الكافيه"
-      tabs={<Tabs tabs={[{ id: 'pos', label: 'الكاشير' }, { id: 'accounts', label: 'حسابات الكافيه' }]} value={tab} onChange={setTab} />}
+      tabs={tabs.length > 1 && <Tabs tabs={tabs} value={tab} onChange={setTab} />}
       actions={tab === 'accounts' && (
         <>
-          {isAdmin && <button className="btn" onClick={() => setForm({ type: 'in', section: 'cafe' })}><Plus />إيراد</button>}
+          {can('finance.income') && <button className="btn" onClick={() => setForm({ type: 'in', section: 'cafe' })}><Plus />إيراد</button>}
           {canExpense && <button className="btn btn-primary" onClick={() => setForm({ type: 'out', section: 'cafe' })}><Plus />مصروف</button>}
         </>
       )}
@@ -30,7 +32,7 @@ export default function Cafe() {
 }
 
 function Pos() {
-  const { settings, currency, isAdmin, user } = useApp();
+  const { settings, currency, can, user } = useApp();
   const act = useAction();
   const [items] = useData('cafe_items');
   const [orders] = useData('cafe_orders', { field: 'date', equals: today() });
@@ -46,7 +48,7 @@ function Pos() {
   const active = items.filter((i) => i.active);
   const cats = [...new Set(active.map((i) => i.category || 'أخرى'))];
   const shown = cat === 'all' ? active : active.filter((i) => (i.category || 'أخرى') === cat);
-  const canDiscount = isAdmin || settings.allowEmployeeDiscount;
+  const canDiscount = can('cafe.discount');
 
   const add = (it) => setCart((c) => {
     const ex = c.find((x) => x.item_id === it.id);
@@ -66,14 +68,15 @@ function Pos() {
       const o = await act(() => api.put('cafe_orders', { date: today(), time: nowTime(), number, items: cart, subtotal, discount: disc, total, method, note }), `تم تسجيل الطلب #${number}`);
       if (printAfter) {
         printReceipt({
-          venueName: settings.venueName, title: `طلب كافيه #${number}`,
-          lines: [['التاريخ', `${o.date} ${time12(o.time)}`], ['الموظف', user.name]],
-          items: cart.map((i) => ({ name: i.name, qty: i.qty, total: money(i.price * i.qty, currency) })),
-          totals: [
-            ...(disc ? [['المجموع', money(subtotal, currency)], ['خصم', money(disc, currency)]] : []),
-            ['الإجمالي', money(total, currency), true], ['الدفع', method],
-          ],
-          footer: settings.receiptFooter,
+          settings: { ...settings, currency },
+          title: 'فاتورة كافيه',
+          number: String(number),
+          meta: [['التاريخ', o.date], ['الوقت', time12(o.time)], ['الكاشير', user.name]],
+          items: cart,
+          totals: disc ? [['المجموع', subtotal], ['خصم', -disc]] : [],
+          grand: ['الإجمالي', total],
+          payment: method,
+          note,
         });
       }
       setCart([]); setDiscount(''); setNote('');
@@ -138,7 +141,7 @@ function Pos() {
       <Panel body={false} title="طلبات اليوم" meta={todays.length ? `${todays.length} · ${money(todays.reduce((s, o) => s + (Number(o.total) || 0), 0), currency)}` : null}>
         {todays.length === 0 ? <Empty>لا توجد طلبات اليوم</Empty> : (
           <table className="table">
-            <thead><tr><th>#</th><th>الوقت</th><th>الأصناف</th><th>الدفع</th><th>الموظف</th><th className="end">المبلغ</th>{isAdmin && <th />}</tr></thead>
+            <thead><tr><th>#</th><th>الوقت</th><th>الأصناف</th><th>الدفع</th><th>الموظف</th><th className="end">المبلغ</th>{can('cafe.delete') && <th />}</tr></thead>
             <tbody>
               {todays.map((o) => (
                 <tr key={o.id}>
@@ -148,7 +151,7 @@ function Pos() {
                   <td className="muted">{o.method}</td>
                   <td className="muted">{userName(o.created_by)}</td>
                   <td className="end num strong">{num(o.total)}</td>
-                  {isAdmin && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(o)}><Trash2 /></button></td>}
+                  {can('cafe.delete') && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(o)}><Trash2 /></button></td>}
                 </tr>
               ))}
             </tbody>
@@ -161,9 +164,9 @@ function Pos() {
 }
 
 function CafeAccounts() {
-  const { currency, isAdmin } = useApp();
+  const { currency, can } = useApp();
   const act = useAction();
-  const [range, setRange] = useState({ from: isAdmin ? startOfMonth() : today(), to: today() });
+  const [range, setRange] = useState({ from: can('finance.view_all') ? startOfMonth() : today(), to: today() });
   const opts = { field: 'date', from: range.from, to: range.to };
   const [orders] = useData('cafe_orders', opts, [range.from, range.to]);
   const [txs] = useData('transactions', opts, [range.from, range.to]);
@@ -200,15 +203,15 @@ function CafeAccounts() {
         <Panel body={false} title="المصروفات والإيرادات اليدوية" meta={cafeTx.length || null}>
           {cafeTx.length === 0 ? <Empty>لا توجد حركات في هذه الفترة</Empty> : (
             <table className="table">
-              <thead><tr><th>التاريخ</th><th>البند</th><th>بواسطة</th><th className="end">المبلغ</th>{isAdmin && <th />}</tr></thead>
+              <thead><tr><th>التاريخ</th><th>البند</th><th>بواسطة</th><th className="end">المبلغ</th>{can('finance.delete') && <th />}</tr></thead>
               <tbody>
                 {[...cafeTx].sort((a, b) => b.date.localeCompare(a.date)).map((t) => (
                   <tr key={t.id}>
                     <td className="num">{t.date}</td>
                     <td><div className="cell-title">{t.category}</div>{t.note && <div className="cell-sub">{t.note}</div>}</td>
                     <td className="muted">{userName(t.created_by)}</td>
-                    <td className={`end num strong ${t.type === 'in' ? 'text-ok' : ''}`}>{t.type === 'in' ? '+' : '−'}{num(t.amount)}</td>
-                    {isAdmin && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(t)}><Trash2 /></button></td>}
+                    <td className={`end num strong ${t.type === 'in' ? 'text-ok' : ''}`}><span className="signed">{t.type === 'in' ? '+' : '−'}{num(t.amount)}</span></td>
+                    {can('finance.delete') && <td className="actions"><button className="icon-btn danger" title="حذف" onClick={() => setConfirm(t)}><Trash2 /></button></td>}
                   </tr>
                 ))}
               </tbody>

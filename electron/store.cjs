@@ -5,17 +5,16 @@ const { DatabaseSync } = require('node:sqlite');
 const crypto = require('node:crypto');
 
 const TABLES = [
-  'users', 'settings', 'packages', 'extras', 'ticket_types', 'cafe_items',
+  'users', 'roles', 'settings', 'packages', 'extras', 'ticket_types', 'cafe_items',
   'bookings', 'payments', 'ticket_sales', 'cafe_orders', 'transactions',
 ];
 const FIELD_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-function assertTable(tbl) {
-  if (!TABLES.includes(tbl)) throw new Error(`جدول غير معروف: ${tbl}`);
-}
+
 
 class Store {
-  constructor(file) {
+  constructor(file, tables = TABLES) {
+    this.tables = tables;
     this.db = new DatabaseSync(file);
     this.db.exec(`
       PRAGMA journal_mode = WAL;
@@ -35,6 +34,10 @@ class Store {
     `);
   }
 
+  assertTable(tbl) {
+    if (!this.tables.includes(tbl)) throw new Error(`جدول غير معروف: ${tbl}`);
+  }
+
   // ---------- local key/value (never synced) ----------
   getKV(key, fallback = null) {
     const row = this.db.prepare('SELECT value FROM kv WHERE key = ?').get(key);
@@ -47,7 +50,7 @@ class Store {
 
   // ---------- reads ----------
   list(tbl, opts = {}) {
-    assertTable(tbl);
+    this.assertTable(tbl);
     let sql = 'SELECT data FROM records WHERE tbl = ? AND deleted = 0';
     const params = [tbl];
     if (opts.field) {
@@ -61,14 +64,14 @@ class Store {
   }
 
   get(tbl, id) {
-    assertTable(tbl);
+    this.assertTable(tbl);
     const row = this.db.prepare('SELECT data FROM records WHERE tbl = ? AND id = ? AND deleted = 0').get(tbl, id);
     return row ? JSON.parse(row.data) : null;
   }
 
   // ---------- writes ----------
   put(tbl, obj, userId) {
-    assertTable(tbl);
+    this.assertTable(tbl);
     const now = Date.now();
     const existing = obj.id ? this.get(tbl, obj.id) : null;
     const doc = {
@@ -87,7 +90,7 @@ class Store {
   }
 
   remove(tbl, id, userId) {
-    assertTable(tbl);
+    this.assertTable(tbl);
     const row = this.db.prepare('SELECT data FROM records WHERE tbl = ? AND id = ?').get(tbl, id);
     if (!row) return false;
     const now = Date.now();
@@ -129,7 +132,7 @@ class Store {
     this.db.exec('BEGIN');
     try {
       for (const r of rows) {
-        if (!TABLES.includes(r.tbl)) continue;
+        if (!this.tables.includes(r.tbl)) continue;
         const local = sel.get(r.tbl, r.id);
         const remoteTs = Number(r.updated_at);
         if (local && local.updated_at > remoteTs) continue; // local is newer, it will be pushed
@@ -156,6 +159,24 @@ class Store {
     this.applyRemote(rows);
     this.db.exec('UPDATE records SET dirty = 1');
   }
+
+  // Latest changes across all tables, newest first (activity log).
+  recent(limit = 200, before = null) {
+    const rows = before
+      ? this.db.prepare('SELECT tbl, id, data, updated_at, deleted FROM records WHERE updated_at > 0 AND updated_at < ? ORDER BY updated_at DESC LIMIT ?').all(before, limit)
+      : this.db.prepare('SELECT tbl, id, data, updated_at, deleted FROM records WHERE updated_at > 0 ORDER BY updated_at DESC LIMIT ?').all(limit);
+    return rows.map((r) => ({ tbl: r.tbl, id: r.id, data: JSON.parse(r.data), updated_at: r.updated_at, deleted: !!r.deleted }));
+  }
+
+  stats() {
+    const byTable = this.db.prepare('SELECT tbl, SUM(deleted = 0) AS live, SUM(deleted = 1) AS deleted, SUM(dirty = 1) AS dirty FROM records GROUP BY tbl ORDER BY tbl').all();
+    const page = this.db.prepare('PRAGMA page_count').get().page_count * this.db.prepare('PRAGMA page_size').get().page_size;
+    return { byTable, bytes: page };
+  }
+
+  markAllDirty() { this.db.exec('UPDATE records SET dirty = 1 WHERE updated_at > 0'); }
+
+  vacuum() { this.db.exec('VACUUM'); }
 
   pendingCount() {
     return this.db.prepare('SELECT COUNT(*) AS c FROM records WHERE dirty = 1').get().c;

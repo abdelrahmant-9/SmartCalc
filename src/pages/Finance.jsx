@@ -4,8 +4,10 @@ import { api } from '../lib/api.js';
 import { useAction, useApp, useData } from '../lib/context.jsx';
 import { addDays, endOfMonth, money, num, prettyDate, startOfMonth, startOfWeek, today, toCSV } from '../lib/format.js';
 import { movements, SECTION_LABELS, summarize } from '../lib/finance.js';
-import { Confirm, Empty, Field, Metric, Metrics, MethodSelect, Modal, MoneyInput, Page, Panel } from '../components/ui.jsx';
+import { Confirm, Empty, Field, Metric, Metrics, MethodSelect, Modal, MoneyInput, Page, Panel, useShowMore } from '../components/ui.jsx';
 import BarChart from '../components/BarChart.jsx';
+import Combobox from '../components/Combobox.jsx';
+import Select from '../components/Select.jsx';
 
 export function RangePicker({ value, onChange }) {
   const t = today();
@@ -31,7 +33,7 @@ export function RangePicker({ value, onChange }) {
 }
 
 export function TransactionForm({ initial, onClose, lockSection }) {
-  const { settings, isAdmin } = useApp();
+  const { settings, can } = useApp();
   const act = useAction();
   const cats = initial.type === 'in' ? settings.incomeCategories || [] : settings.expenseCategories || [];
   const [f, setF] = useState({
@@ -55,17 +57,14 @@ export function TransactionForm({ initial, onClose, lockSection }) {
     )}>
       <div className="form-grid">
         <Field label="المبلغ"><MoneyInput autoFocus value={f.amount} onChange={set('amount')} /></Field>
-        <Field label="التاريخ"><input type="date" value={f.date} onChange={set('date')} disabled={!isAdmin} /></Field>
+        <Field label="التاريخ"><input type="date" value={f.date} onChange={set('date')} disabled={!can('finance.backdate')} /></Field>
         {!lockSection && (
           <Field label="القسم">
-            <select value={f.section} onChange={set('section')}>
-              {Object.entries(SECTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
+            <Select value={f.section} onChange={set('section')} options={Object.entries(SECTION_LABELS).map(([value, label]) => ({ value, label }))} />
           </Field>
         )}
         <Field label="البند">
-          <input list="tx-cats" value={f.category} onChange={set('category')} />
-          <datalist id="tx-cats">{cats.map((c) => <option key={c} value={c} />)}</datalist>
+          <Combobox value={f.category} onChange={set('category')} options={cats} newLabel="بند جديد" />
         </Field>
         <Field label="طريقة الدفع"><MethodSelect value={f.method} onChange={set('method')} methods={settings.paymentMethods} /></Field>
         <Field label="التفاصيل" span={lockSection ? undefined : 2}><input value={f.note} onChange={set('note')} /></Field>
@@ -75,8 +74,8 @@ export function TransactionForm({ initial, onClose, lockSection }) {
 }
 
 export default function Finance() {
-  const { isAdmin } = useApp();
-  return isAdmin ? <AdminFinance /> : <EmployeeFinance />;
+  const { can } = useApp();
+  return can('finance.view_all') ? <AdminFinance /> : <EmployeeFinance />;
 }
 
 function useMovements(range) {
@@ -202,15 +201,8 @@ function AdminFinance() {
         body={false} title="الحركات" meta={filtered.length}
         actions={(
           <>
-            <select value={section} onChange={(e) => setSection(e.target.value)}>
-              <option value="all">كل الأقسام</option>
-              {Object.entries(SECTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="all">داخل وخارج</option>
-              <option value="in">داخل</option>
-              <option value="out">خارج</option>
-            </select>
+            <Select value={section} onChange={setSection} aria-label="القسم" options={[{ value: 'all', label: 'كل الأقسام' }, ...Object.entries(SECTION_LABELS).map(([value, label]) => ({ value, label }))]} />
+            <Select value={type} onChange={setType} aria-label="النوع" options={[{ value: 'all', label: 'داخل وخارج' }, { value: 'in', label: 'داخل' }, { value: 'out', label: 'خارج' }]} />
           </>
         )}
       >
@@ -229,24 +221,26 @@ function AdminFinance() {
 }
 
 function MovementTable({ rows, userName, onDelete }) {
+  const [shown, more] = useShowMore(rows, 100, `${rows.length}-${rows[0]?.key || ''}`);
   return (
     <div className="table-wrap">
       <table className="table">
         <thead><tr><th>التاريخ</th><th>البيان</th><th>القسم</th><th>الدفع</th><th>الموظف</th><th className="end">المبلغ</th>{onDelete && <th />}</tr></thead>
         <tbody>
-          {rows.map((m) => (
+          {shown.map((m) => (
             <tr key={m.key}>
               <td className="num">{m.date}</td>
               <td><div className="cell-title">{m.label}</div>{m.category && m.category !== m.label && <div className="cell-sub">{m.category}</div>}</td>
               <td className="muted">{SECTION_LABELS[m.section] || m.section}</td>
               <td className="muted">{m.method}</td>
               <td className="muted">{userName(m.user)}</td>
-              <td className={`end num strong ${m.type === 'in' ? 'text-ok' : ''}`}>{m.type === 'in' ? '+' : '−'}{num(m.amount)}</td>
+              <td className={`end num strong ${m.type === 'in' ? 'text-ok' : ''}`}><span className="signed">{m.type === 'in' ? '+' : '−'}{num(m.amount)}</span></td>
               {onDelete && <td className="actions">{m.key.startsWith('x-') && <button className="icon-btn danger" title="حذف" onClick={() => onDelete(m)}><Trash2 /></button>}</td>}
             </tr>
           ))}
         </tbody>
       </table>
+      {more}
     </div>
   );
 }
@@ -264,7 +258,7 @@ function EmployeeFinance() {
     <Page
       title="حساب اليوم"
       sub="العمليات المسجلة باسمك اليوم — للتسليم آخر الوردية"
-      actions={settings.allowEmployeeExpenses && <button className="btn btn-primary" onClick={() => setForm({ type: 'out' })}><Plus />مصروف</button>}
+      actions={can('finance.expense') && <button className="btn btn-primary" onClick={() => setForm({ type: 'out' })}><Plus />مصروف</button>}
     >
       <Metrics>
         <Metric label="المحصّل" amount={s.in} currency={currency} />
