@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { BadgeCheck, CalendarClock, Clock, KeyRound, LockKeyhole, ShieldAlert } from 'lucide-react';
+import { Ban, BadgeCheck, CalendarClock, Clock, FileUp, KeyRound, LockKeyhole, RefreshCw, ShieldAlert, Wifi, WifiOff } from 'lucide-react';
 import { api } from '../../lib/api.js';
 import { useApp } from '../../lib/context.jsx';
 import { Field, Notice, Panel } from '../../components/ui.jsx';
-import { ltr } from '../../lib/format.js';
+import { dateTime, ltr } from '../../lib/format.js';
 
 const STATE = {
   off: ['بدون ترخيص', 'نظام الترخيص غير مفعّل في النسخة دي', 'muted', BadgeCheck],
@@ -15,13 +15,27 @@ const STATE = {
   grace: ['الاشتراك انتهى — فترة سماح', null, 'danger', ShieldAlert],
   expired: ['الاشتراك منتهي', 'البرنامج للعرض فقط لحد التجديد', 'danger', LockKeyhole],
   invalid: ['مفتاح غير صالح', null, 'danger', ShieldAlert],
+  suspended: ['الاشتراك موقوف', null, 'danger', Ban],
+  checkin_required: ['محتاج اتصال بالإنترنت', 'وصّل الجهاز بالنت واضغط "تحقق الآن" — بياخد ثواني', 'danger', WifiOff],
 };
 
 export default function License() {
   const { license, setLicense, can, toast, refresh } = useApp();
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
   if (!license) return null;
+  const checkNow = async () => {
+    setChecking(true);
+    try {
+      const l = await api.checkLicense(); setLicense(l); refresh();
+      toast(l.changed ? 'تم التحقق — وصل تحديث للترخيص' : 'تم التحقق من الاشتراك');
+    } catch (e) { toast(e.message, 'error'); }
+    setChecking(false);
+  };
+  const fromFile = async () => {
+    try { const l = await api.activateLicenseFile(); if (l) { setLicense(l); refresh(); toast('تم التفعيل من الملف'); } } catch (e) { toast(e.message, 'error'); }
+  };
   const [title, fixedSub, tone, Icon] = STATE[license.state] || STATE.off;
   const sub = fixedSub || {
     trial: `باقي ${license.days} يوم (لحد ${ltr(license.trial_ends)})`,
@@ -29,6 +43,7 @@ export default function License() {
     expiring: `بينتهي ${ltr(license.expires)} — باقي ${license.days} يوم`,
     grace: `انتهى ${ltr(license.expires)} — باقي ${license.grace_left} يوم قبل ما البرنامج يقف`,
     invalid: license.error,
+    suspended: `اتوقف من الدعم الفني${license.reason ? ` — ${license.reason}` : ''}. البيانات موجودة وتقدر تشوفها، والتسجيل هيرجع أول ما يتشغل.`,
   }[license.state];
 
   const activate = async () => {
@@ -58,8 +73,15 @@ export default function License() {
           </dl>
         )}
         <dl className="facts" style={{ marginTop: 12 }}>
+          <dt>آخر تحقق أونلاين</dt><dd className="num">{license.last_online ? dateTime(license.last_online) : 'لسه'}</dd>
+          {license.offline && (<><dt>لازم يتصل بالنت</dt><dd>{license.offline.left_days > 0 ? `خلال ${license.offline.left_days} يوم` : 'دلوقتي'} <span className="muted small">(مرة كل {license.offline.days} يوم على الأقل)</span></dd></>)}
           <dt>رقم الجهاز</dt><dd className="mono small">{license.device_id || '—'}</dd>
         </dl>
+        {license.state !== 'off' && (
+          <div className="row" style={{ marginTop: 12 }}>
+            <button className={`btn ${license.state === 'checkin_required' ? 'btn-primary' : ''}`} disabled={checking} onClick={checkNow}>{checking ? <RefreshCw className="spin" /> : <Wifi />}تحقق الآن</button>
+          </div>
+        )}
         {can('dev.tools') && license.license && (
           <button className="btn btn-sm btn-danger-quiet" style={{ marginTop: 12 }} onClick={() => api.removeLicense().then(setLicense).catch((e) => toast(e.message, 'error'))}>إلغاء الترخيص من الجهاز</button>
         )}
@@ -72,8 +94,12 @@ export default function License() {
             </Field>
             <div className="row" style={{ marginTop: 12 }}>
               <button className="btn btn-primary" disabled={busy || !key.trim()} onClick={activate}><KeyRound />تفعيل</button>
+              <button className="btn" onClick={fromFile}><FileUp />تفعيل من ملف</button>
             </div>
-            <p className="muted small" style={{ marginTop: 12 }}>المفتاح بيتفعّل على كل أجهزة المكان أوتوماتيك لو المزامنة شغالة.</p>
+            <p className="muted small" style={{ marginTop: 12 }}>
+              الجهاز مفيهوش نت؟ خد ملف المفتاح (.hvnkey) على فلاشة واضغط "تفعيل من ملف".
+              ولو الجهاز متصل بالنت، التجديد بيوصل لوحده من غير ما تلصق حاجة.
+            </p>
           </>
         )}
       </Panel>

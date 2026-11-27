@@ -2,7 +2,9 @@
 const crypto = require('node:crypto');
 const P = require('./permissions.cjs');
 const L = require('./license.cjs');
-const BUILT_IN_PUBLIC_KEY = require('./license-public.cjs');
+const BUILT_IN = require('./license-public.cjs');
+// Older builds stored just the public key string; newer ones also carry the license server address.
+const LICENSE_CFG = typeof BUILT_IN === 'string' ? { publicKey: BUILT_IN } : BUILT_IN || {};
 
 const CATALOG_TABLES = ['packages', 'extras', 'ticket_types', 'cafe_items'];
 
@@ -50,11 +52,13 @@ function localToday() {
 }
 
 class Service {
-  constructor(store, { publicKey = BUILT_IN_PUBLIC_KEY, now = () => Date.now() } = {}) {
+  constructor(store, { publicKey = LICENSE_CFG.publicKey || null, server = LICENSE_CFG.server || null, now = () => Date.now() } = {}) {
     this.store = store;
     this.user = null;
     this.publicKey = publicKey;
+    this.server = server;
     this.now = now;
+    this.refreshClockFloor();
     if (!store.getKV('first_run')) store.setKV('first_run', now());
     this.seed();
   }
@@ -62,16 +66,95 @@ class Service {
   // ---------- license ----------
   licenseKey() {
     // Synced with the other devices of the venue; the local copy covers a device that has not synced yet.
-    return this.store.get('settings', 'license')?.key || this.store.getKV('license_key') || null;
+    // When both exist, the one issued last wins.
+    const keys = [this.store.get('settings', 'license')?.key, this.store.getKV('license_key')].filter(Boolean);
+    if (keys.length < 2 || !this.publicKey) return keys[0] || null;
+    const issued = (k) => { try { return L.verifyLicense(k, this.publicKey).issued || 0; } catch { return -1; } };
+    return keys.sort((x, y) => issued(y) - issued(x))[0];
+  }
+
+  // The newest moment we know has passed: saved records can't come from the future.
+  refreshClockFloor() {
+    this.clockFloor = this.store.db.prepare('SELECT MAX(updated_at) AS t FROM records').get()?.t || 0;
+  }
+
+  // "Now" that can't be moved backwards: the computer clock, the last time the app saw, the newest
+  // saved record, and the last real time fetched from the internet, whichever is latest.
+  effectiveNow() {
+    const last = this.store.getKV('last_seen', 0);
+    const now = Math.max(this.now(), last, this.clockFloor || 0, this.store.getKV('last_check', 0) || 0);
+    if (now > last + 60000) this.store.setKV('last_seen', now);
+    return now;
+  }
+
+  licenseStatus() {
+    const tokens = [this.store.get('settings', 'license_status')?.status, this.store.getKV('license_status')].filter(Boolean);
+    const all = tokens.map((t) => L.verifyStatus(t, this.publicKey)).filter(Boolean);
+    return all.sort((x, y) => y.at - x.at)[0] || null;
   }
 
   license() {
-    // Never let time run backwards: turning the computer clock back does not extend a subscription.
-    const last = this.store.getKV('last_seen', 0);
-    const now = Math.max(this.now(), last);
-    if (now > last + 60000) this.store.setKV('last_seen', now);
-    const st = L.evaluate({ publicKey: this.publicKey, key: this.licenseKey(), firstRun: this.store.getKV('first_run'), now });
-    return { ...st, trial_days: L.TRIAL_DAYS, grace_days: L.GRACE_DAYS, device_id: this.store.getKV('device_id') || null };
+    const now = this.effectiveNow();
+    const checkin = {
+      last: this.store.getKV('last_check') || this.store.getKV('activated_at') || this.store.getKV('first_run'),
+      uptime: this.store.getKV('uptime_since_check', 0),
+    };
+    const st = L.evaluate({
+      publicKey: this.publicKey, key: this.licenseKey(), firstRun: this.store.getKV('first_run'), now,
+      status: this.publicKey ? this.licenseStatus() : null, checkin, uptimeTotal: this.store.getKV('uptime_total', 0),
+    });
+    return {
+      ...st, trial_days: L.TRIAL_DAYS, grace_days: L.GRACE_DAYS, device_id: this.store.getKV('device_id') || null,
+      last_online: this.store.getKV('last_check') || null, has_server: !!this.server?.url,
+    };
+  }
+
+  // Called every minute while the app runs. Uses a monotonic timer, so changing the clock doesn't affect it.
+  tick(ms) {
+    this.store.setKV('uptime_total', this.store.getKV('uptime_total', 0) + ms);
+    this.store.setKV('uptime_since_check', this.store.getKV('uptime_since_check', 0) + ms);
+  }
+
+  // Result of an online check: real time, and maybe a newer key or a suspend/resume from the vendor.
+  recordOnline({ serverTime, key, status }) {
+    if (serverTime) {
+      this.store.setKV('last_check', Math.max(serverTime, this.store.getKV('last_check', 0)));
+      this.store.setKV('uptime_since_check', 0);
+    }
+    let changed = false;
+    if (this.publicKey && status) {
+      const st = L.verifyStatus(status, this.publicKey);
+      const cur = this.licenseStatus();
+      if (st && (!cur || st.at > cur.at)) {
+        this.store.setKV('license_status', status);
+        this.store.put('settings', { id: 'license_status', status }, null);
+        changed = true;
+      }
+    }
+    if (this.publicKey && key) {
+      try {
+        const p = L.verifyLicense(key, this.publicKey);
+        const curKey = this.licenseKey();
+        const cur = curKey ? L.verifyLicense(curKey, this.publicKey) : null;
+        if (!cur || (p.cid === cur.cid && (p.issued || 0) > (cur.issued || 0))) { this.storeKey(key, p, null); changed = true; }
+      } catch { /* ignore anything that isn't signed by the vendor */ }
+    }
+    return { ...this.license(), changed };
+  }
+
+  storeKey(clean, p, userId) {
+    this.store.setKV('license_key', clean);
+    this.store.setKV('activated_at', this.effectiveNow());
+    this.store.setKV('uptime_since_check', 0);
+    // Written directly: renewing must work even while the app is read-only.
+    this.store.put('settings', { id: 'license', key: clean, customer: p.customer, venue: p.venue }, userId);
+  }
+
+  // Customer id of the current key, used to ask the license server about it.
+  licenseCid() {
+    const k = this.licenseKey();
+    if (!k || !this.publicKey) return null;
+    try { return L.verifyLicense(k, this.publicKey).cid || null; } catch { return null; }
   }
 
   assertWritable() {
@@ -81,6 +164,8 @@ class Service {
       trial_ended: 'انتهت الفترة التجريبية — فعّل الترخيص من الإعدادات ← الترخيص',
       expired: 'الاشتراك منتهي — البرنامج للعرض فقط لحد ما يتجدد',
       invalid: 'مفتاح الترخيص غير صالح — تواصل مع الدعم الفني',
+      suspended: 'الاشتراك موقوف من الدعم الفني — البرنامج للعرض فقط',
+      checkin_required: 'لازم الجهاز يتصل بالإنترنت مرة للتحقق من الاشتراك — وصّل النت واضغط "تحقق الآن"',
     }[l.state] || 'البرنامج للعرض فقط';
     throw new Error(msg);
   }
@@ -90,9 +175,12 @@ class Service {
     if (!this.publicKey) throw new Error('نظام الترخيص غير مفعّل في النسخة دي');
     const p = L.verifyLicense(key, this.publicKey);
     const clean = String(key).replace(/\s+/g, '');
-    this.store.setKV('license_key', clean);
-    // Written directly: renewing must work even while the app is read-only.
-    this.store.put('settings', { id: 'license', key: clean, customer: p.customer, venue: p.venue }, u.id);
+    const curKey = this.licenseKey();
+    let cur = null;
+    try { cur = curKey ? L.verifyLicense(curKey, this.publicKey) : null; } catch { cur = null; }
+    // Re-entering the same (or an older) key must not reset the offline counters.
+    if (cur && cur.cid === p.cid && (p.issued || 0) <= (cur.issued || 0)) throw new Error('المفتاح ده مُفعّل بالفعل أو أقدم من الحالي');
+    this.storeKey(clean, p, u.id);
     return this.license();
   }
 
@@ -256,7 +344,7 @@ class Service {
 
     if (tbl === 'users') throw new Error('استخدم شاشة المستخدمين');
     if (tbl === 'roles') return this.saveRole(obj);
-    if (tbl === 'settings') { need('settings.general'); if (obj.id === 'license') throw new Error('فعّل الترخيص من شاشة الترخيص'); }
+    if (tbl === 'settings') { need('settings.general'); if (obj.id === 'license' || obj.id === 'license_status') throw new Error('فعّل الترخيص من شاشة الترخيص'); }
     if (CATALOG_TABLES.includes(tbl)) need('settings.catalog');
 
     if (tbl === 'bookings') {

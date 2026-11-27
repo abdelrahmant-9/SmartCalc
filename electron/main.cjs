@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const { Store } = require('./store.cjs');
 const { Service } = require('./service.cjs');
 const { Sync } = require('./sync.cjs');
+const { checkOnline } = require('./license-online.cjs');
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
 let win = null;
@@ -65,6 +66,18 @@ function registerIpc() {
   handle('users:save', (data) => { const r = service.saveUser(data); sync.nudge(); return r; });
   handle('auth:catalogue', () => service.catalogue());
   handle('license:status', () => service.license());
+  handle('license:check', () => runLicenseCheck(true));
+  handle('license:activateFile', async () => {
+    service.requireAny(['settings.general', 'dev.tools']);
+    const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Heaven License', extensions: ['hvnkey', 'txt'] }] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const text = fs.readFileSync(r.filePaths[0], 'utf8');
+    const key = (text.match(/HVN1-[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+/) || [])[0];
+    if (!key) throw new Error('الملف ده مفيهوش مفتاح ترخيص');
+    const res = service.activateLicense(key);
+    sync.nudge();
+    return res;
+  });
   handle('license:activate', (key) => { const r = service.activateLicense(key); sync.nudge(); return r; });
   handle('license:remove', () => { const r = service.removeLicense(); sync.nudge(); return r; });
   handle('app:branding', () => service.branding());
@@ -133,6 +146,39 @@ function registerIpc() {
 // A separate data folder (e.g. the demo copy) gets its own profile, so it can run next to the real app.
 if (process.env.HEAVEN_DATA_DIR) app.setPath('userData', path.resolve(process.env.HEAVEN_DATA_DIR));
 
+// ---------- license clock ----------
+// Running time is counted with a monotonic timer (performance.now), so changing the computer
+// clock neither adds nor removes time. An online check runs at start, every 30 minutes, and right
+// after the connection comes back.
+let licenseBusy = false;
+async function runLicenseCheck(manual = false) {
+  if (licenseBusy || !service.publicKey) return service.license();
+  licenseBusy = true;
+  try {
+    const res = await checkOnline({ server: service.server, cid: service.licenseCid() });
+    const st = service.recordOnline(res);
+    send('license:changed', st);
+    return st;
+  } catch (e) {
+    if (manual) throw e;
+    return service.license();
+  } finally { licenseBusy = false; }
+}
+
+function startLicenseClock() {
+  const { performance } = require('node:perf_hooks');
+  let lastTick = performance.now();
+  setInterval(() => {
+    const t = performance.now();
+    service.tick(Math.min(t - lastTick, 5 * 60000)); // a sleeping laptop doesn't count as running
+    lastTick = t;
+    const st = service.license();
+    send('license:changed', st);
+  }, 60000);
+  setTimeout(() => runLicenseCheck(), 5000);
+  setInterval(() => runLicenseCheck(), 30 * 60000);
+}
+
 // Make sure only one copy runs so two windows never write the same database.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -147,12 +193,13 @@ if (!app.requestSingleInstanceLock()) {
     store = new Store(path.join(dataDir, 'heaven.db'));
     service = new Service(store);
     sync = new Sync(store, {
-      onChange: () => send('data:changed'),
+      onChange: () => { service.refreshClockFloor(); send('data:changed'); },
       onStatus: (s) => send('sync:status', s),
     });
     registerIpc();
     createWindow();
     sync.start();
+    startLicenseClock();
 
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   });

@@ -32,7 +32,11 @@ export function AppProvider({ children }) {
     const timer = setInterval(check, 5 * 60000);
     const off1 = api.on('data:changed', () => setVersion((v) => v + 1));
     const off2 = api.on('sync:status', setSyncStatus);
-    return () => { off1(); off2(); clearInterval(timer); };
+    const off3 = api.on('license:changed', setLicense);
+    // Back online: check right away instead of waiting for the next scheduled check.
+    const onOnline = () => api.checkLicense().then(setLicense).catch(() => {});
+    window.addEventListener('online', onOnline);
+    return () => { off1(); off2(); off3(); clearInterval(timer); window.removeEventListener('online', onOnline); };
   }, []);
 
   useEffect(() => {

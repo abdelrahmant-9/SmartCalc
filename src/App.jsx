@@ -135,11 +135,18 @@ export default function App() {
 }
 
 function licenseNotice(l, onOpen) {
-  if (!l || ['off', 'perpetual', 'active'].includes(l.state)) return null;
+  if (!l || l.state === 'off') return null;
+  if (['perpetual', 'active'].includes(l.state)) {
+    // Remind a few days before the device must go online.
+    if (l.offline && l.offline.left_days <= 3) return <Notice tone="warn">وصّل الجهاز بالإنترنت خلال {l.offline.left_days} يوم عشان التحقق من الاشتراك.{onOpen && <><span className="spacer" /><button className="link" onClick={onOpen}>تحقق الآن</button></>}</Notice>;
+    return null;
+  }
   const action = onOpen && <><span className="spacer" /><button className="link" onClick={onOpen}>{l.state === 'trial' ? 'تفعيل الترخيص' : 'تجديد الاشتراك'}</button></>;
   if (l.state === 'trial') return <Notice tone="info">نسخة تجريبية — باقي {l.days} يوم.{action}</Notice>;
   if (l.state === 'expiring') return <Notice tone="warn">الاشتراك بينتهي {l.days === 0 ? 'النهارده' : `بعد ${l.days} يوم`} ({ltr(l.expires)}).{action}</Notice>;
   if (l.state === 'grace') return <Notice tone="danger">الاشتراك انتهى. باقي {l.grace_left} يوم والبرنامج يبقى للعرض فقط.{action}</Notice>;
+  if (l.state === 'checkin_required') return <Notice tone="danger">لازم الجهاز يتصل بالإنترنت مرة للتحقق من الاشتراك — البرنامج للعرض فقط لحد كده.{onOpen && <><span className="spacer" /><button className="link" onClick={onOpen}>تحقق الآن</button></>}</Notice>;
+  if (l.state === 'suspended') return <Notice tone="danger">الاشتراك موقوف من الدعم الفني{l.reason ? ` (${l.reason})` : ''} — البرنامج للعرض فقط. تواصل مع الدعم.</Notice>;
   const why = { trial_ended: 'الفترة التجريبية خلصت', expired: 'الاشتراك منتهي', invalid: 'مفتاح الترخيص غير صالح' }[l.state] || 'غير مرخص';
   return <Notice tone="danger">{why} — البرنامج للعرض فقط ومينفعش تسجيل عمليات جديدة.{action}</Notice>;
 }

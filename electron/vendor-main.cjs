@@ -54,10 +54,52 @@ function issueKey(customer, extra = {}) {
     lid, cid: customer.id, customer: customer.name, venue: customer.venue || '', type: customer.type,
     plan: plan?.name || '', expires: customer.type === 'subscription' ? customer.expires_at : null,
     support_until: customer.type === 'perpetual' ? customer.support_until || null : null,
+    // Days the customer's computer may run without reaching the internet (0 = no limit).
+    offline_days: customer.offline_days ?? (customer.type === 'subscription' ? 14 : 0),
   };
   const key = L.signLicense(payload, privateKey());
   const rec = store.put('licenses', { customer_id: customer.id, key, lid, type: payload.type, expires: payload.expires, support_until: payload.support_until, ...extra });
   return { key, license: rec };
+}
+
+// ---------- license server (the vendor's own Supabase project) ----------
+let session = null;
+const serverCfg = () => store.getKV('server', { url: '', anonKey: '', email: '', password: '' });
+
+async function sb(pathname, { method = 'GET', body, auth = true, headers = {} } = {}) {
+  const c = serverCfg();
+  const h = { apikey: c.anonKey, 'Content-Type': 'application/json', ...headers };
+  if (auth) h.Authorization = `Bearer ${session.access_token}`;
+  const res = await fetch(`${c.url.replace(/\/+$/, '')}${pathname}`, { method, headers: h, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000) });
+  const text = await res.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) { const e = new Error((data && (data.message || data.error_description || data.msg)) || `HTTP ${res.status}`); e.status = res.status; throw e; }
+  return data;
+}
+
+async function login() {
+  const c = serverCfg();
+  if (session && session.expires_at - 60 > Date.now() / 1000) return;
+  session = await sb('/auth/v1/token?grant_type=password', { method: 'POST', auth: false, body: { email: c.email, password: c.password } });
+}
+
+// Publishes a customer's latest key and signed suspend/resume status to the license server.
+async function push(customer) {
+  const c = serverCfg();
+  if (!c.url || !c.anonKey) return { pushed: false, reason: 'no-server' };
+  try {
+    await login();
+    const latest = store.list('licenses').filter((l) => l.customer_id === customer.id).sort((a, b) => b.created_at - a.created_at)[0];
+    const status = L.signStatus({ cid: customer.id, revoked: customer.status === 'suspended', reason: customer.suspend_reason || '', at: Date.now() }, privateKey());
+    await sb('/rest/v1/licenses', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: [{ cid: customer.id, key: latest?.key || null, status, updated_at: new Date().toISOString() }] });
+    store.put('customers', { ...store.get('customers', customer.id), pushed_at: Date.now(), push_error: null });
+    return { pushed: true };
+  } catch (e) {
+    if (e.status === 401) session = null;
+    const msg = /fetch failed|ENOTFOUND|timeout|aborted/i.test(e.message) ? 'لا يوجد اتصال بالإنترنت' : e.message;
+    store.put('customers', { ...store.get('customers', customer.id), push_error: msg });
+    return { pushed: false, reason: msg };
+  }
 }
 
 function handle(channel, fn) {
@@ -72,52 +114,88 @@ function registerIpc() {
   handle('v:remove', (tbl, id) => store.remove(tbl, id));
 
   // Subscription renewal: extend from today or from the current end date (whichever is later), record the payment, issue a key.
-  handle('v:renew', ({ customer_id, months, amount, method, date, note }) => {
+  handle('v:renew', async ({ customer_id, months, amount, method, date, note }) => {
     const c = store.get('customers', customer_id);
     if (!c) throw new Error('العميل غير موجود');
     const n = Math.max(1, Number(months) || 1);
     const from = c.expires_at && c.expires_at > today() ? c.expires_at : today();
     const updated = store.put('customers', { ...c, type: 'subscription', expires_at: addMonths(from, n), status: 'active', start_date: c.start_date || today() });
     const pay = Number(amount) > 0 ? store.put('payments', { customer_id, amount: Number(amount), months: n, kind: 'subscription', method: method || 'كاش', date: date || today(), note: note || '', period: `${from} → ${updated.expires_at}` }) : null;
-    return { customer: updated, payment: pay, ...issueKey(updated, { reason: 'renewal' }) };
+    const issued = issueKey(updated, { reason: 'renewal' });
+    return { customer: updated, payment: pay, ...issued, online: await push(updated) };
   });
 
   // One-time purchase.
-  handle('v:sell', ({ customer_id, amount, support_months, method, date, note }) => {
+  handle('v:sell', async ({ customer_id, amount, support_months, method, date, note }) => {
     const c = store.get('customers', customer_id);
     if (!c) throw new Error('العميل غير موجود');
     const support = Number(support_months) > 0 ? addMonths(today(), Number(support_months)) : null;
     const updated = store.put('customers', { ...c, type: 'perpetual', expires_at: null, support_until: support, status: 'active', start_date: c.start_date || today() });
     const pay = Number(amount) > 0 ? store.put('payments', { customer_id, amount: Number(amount), kind: 'purchase', method: method || 'كاش', date: date || today(), note: note || '' }) : null;
-    return { customer: updated, payment: pay, ...issueKey(updated, { reason: 'purchase' }) };
+    const issued = issueKey(updated, { reason: 'purchase' });
+    return { customer: updated, payment: pay, ...issued, online: await push(updated) };
   });
 
   // Paid support / updates renewal for a one-time purchase.
-  handle('v:support', ({ customer_id, months, amount, method, date }) => {
+  handle('v:support', async ({ customer_id, months, amount, method, date }) => {
     const c = store.get('customers', customer_id);
     const from = c.support_until && c.support_until > today() ? c.support_until : today();
     const updated = store.put('customers', { ...c, support_until: addMonths(from, Number(months) || 12) });
     if (Number(amount) > 0) store.put('payments', { customer_id, amount: Number(amount), months: Number(months) || 12, kind: 'support', method: method || 'كاش', date: date || today(), note: '' });
-    return { customer: updated, ...issueKey(updated, { reason: 'support' }) };
+    const issued = issueKey(updated, { reason: 'support' });
+    return { customer: updated, ...issued, online: await push(updated) };
   });
 
-  handle('v:issue', (customer_id) => {
+  handle('v:issue', async (customer_id) => {
     const c = store.get('customers', customer_id);
     if (!c) throw new Error('العميل غير موجود');
     if (c.type === 'subscription' && !c.expires_at) throw new Error('حدد مدة الاشتراك الأول (تجديد)');
-    return issueKey(c, { reason: 'reissue' });
+    const issued = issueKey(c, { reason: 'reissue' });
+    return { ...issued, online: await push(c) };
   });
 
+  handle('v:suspend', async ({ customer_id, suspended, reason }) => {
+    const c = store.get('customers', customer_id);
+    const updated = store.put('customers', { ...c, status: suspended ? 'suspended' : 'active', suspend_reason: suspended ? reason || '' : '' });
+    return { customer: updated, online: await push(updated) };
+  });
+  handle('v:pushAll', async () => {
+    let ok = 0; let fail = 0; let last = '';
+    for (const c of store.list('customers')) { const r = await push(c); if (r.pushed) ok++; else { fail++; last = r.reason; } }
+    return { ok, fail, error: last };
+  });
+  handle('v:server', () => { const c = serverCfg(); return { url: c.url, anonKey: c.anonKey, email: c.email, hasPassword: !!c.password }; });
+  handle('v:setServer', async (cfg) => {
+    const prev = serverCfg();
+    store.setKV('server', { url: String(cfg.url || '').trim().replace(/\/+$/, ''), anonKey: String(cfg.anonKey || '').trim(), email: String(cfg.email || '').trim(), password: cfg.password || prev.password });
+    session = null;
+    await login(); // proves the settings work
+    return true;
+  });
+  handle('v:saveKeyFile', async ({ key, name }) => {
+    const r = await dialog.showSaveDialog(win, { defaultPath: `${String(name || 'license').replace(/[\\/:*?"<>|]/g, '')}.hvnkey`, filters: [{ name: 'Heaven License', extensions: ['hvnkey'] }] });
+    if (r.canceled || !r.filePath) return null;
+    fs.writeFileSync(r.filePath, `${key}\n`, 'utf8');
+    return r.filePath;
+  });
   handle('v:keyInfo', () => {
     const pub = store.getKV('public_key');
     const built = builtInKey();
-    return { publicKey: pub, linked: !!built && built.trim() === pub.trim(), builtIn: !!built, canLink: !app.isPackaged, keyFile: keyFile() };
+    const builtKey = typeof built === 'string' ? built : built?.publicKey;
+    const builtServer = typeof built === 'object' && built ? built.server?.url || '' : '';
+    const srv = serverCfg();
+    return {
+      publicKey: pub, linked: !!builtKey && builtKey.trim() === pub.trim(), builtIn: !!builtKey,
+      serverLinked: builtServer === (srv.url || ''), server: srv.url || '', canLink: !app.isPackaged, keyFile: keyFile(),
+    };
   });
   // Puts this machine's public key into the client app's source, so the next build only accepts keys signed here.
   handle('v:link', () => {
     if (app.isPackaged) throw new Error('الربط بيتعمل من نسخة الكود بس');
     const pub = store.getKV('public_key');
-    fs.writeFileSync(PUBLIC_FILE, `// Public key used to check license keys. Written by the vendor app on the developer's machine.\n// Commit this file; the matching private key must never be committed.\nmodule.exports = ${JSON.stringify(pub)};\n`);
+    const srv = serverCfg();
+    const cfg = { publicKey: pub, server: srv.url && srv.anonKey ? { url: srv.url, anonKey: srv.anonKey } : null };
+    fs.writeFileSync(PUBLIC_FILE, `// License settings built into the customer app. Written by the vendor app on the developer's machine.\n// Commit this file. It holds only the PUBLIC key and the license server's public (anon) key;\n// the private signing key and the vendor password never leave the vendor app.\nmodule.exports = ${JSON.stringify(cfg, null, 2)};\n`);
     return true;
   });
 

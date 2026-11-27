@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CircleCheck, Download, FileSpreadsheet, Link2, Pencil, Plus, TriangleAlert, Upload, Wallet } from 'lucide-react';
+import { CircleCheck, Cloud, Copy, Download, FileSpreadsheet, Link2, Pencil, Plus, RefreshCw, TriangleAlert, Upload, Wallet } from 'lucide-react';
+import serverSql from '../../../supabase/license-server.sql?raw';
 import { v } from '../vapi.js';
 import { useRows, useV } from '../state.jsx';
 import { money, num, startOfMonth, today, toCSV } from '../../lib/format.js';
@@ -107,13 +108,33 @@ export function VendorSettings() {
   useEffect(load, []);
   const stored = settings.find((s) => s.id === 'vendor');
   useEffect(() => { if (tpl === null && settings.length >= 0) setTpl(stored?.waTemplate ?? null); }, [stored]); // eslint-disable-line
+  const [srv, setSrv] = useState(null);
+  const [srvPass, setSrvPass] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { v.server().then(setSrv).catch(() => {}); }, []);
+  const saveServer = async () => {
+    setBusy(true);
+    try { await v.setServer({ ...srv, password: srvPass }); setSrvPass(''); setSrv(await v.server()); load(); toast('تم الاتصال بسيرفر التراخيص'); } catch (e) { toast(`تعذّر الاتصال: ${e.message}`, 'error'); }
+    setBusy(false);
+  };
+  const pushAll = async () => {
+    setBusy(true);
+    try { const r = await v.pushAll(); refresh(); toast(r.fail ? `اترفع ${r.ok} وفشل ${r.fail}: ${r.error}` : `اترفع ${r.ok} عميل`, r.fail ? 'error' : 'success'); } catch (e) { toast(e.message, 'error'); }
+    setBusy(false);
+  };
   const defaultTpl = 'أهلاً {name} 👋\nده مفتاح تفعيل Heaven Manager لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.';
 
   return (
     <Page title="الإعدادات">
       <Panel title="مفتاح التوقيع">
-        {key && (key.linked
-          ? <Notice tone="info" icon={CircleCheck}>البرنامج مربوط بمفتاح الجهاز ده — أي ترخيص تطلعه من هنا هيشتغل على نسخ العملاء.</Notice>
+        {key && (key.linked && key.serverLinked
+          ? <Notice tone="info" icon={CircleCheck}>البرنامج مربوط بمفتاح الجهاز ده{key.server ? ' وبسيرفر التراخيص' : ''} — أي ترخيص تطلعه من هنا هيشتغل على نسخ العملاء.</Notice>
+          : key.linked && !key.serverLinked
+          ? <Notice tone="warn" icon={TriangleAlert}>
+            إعدادات سيرفر التراخيص اتغيرت — اربط البرنامج تاني واعمل build جديد عشان نسخ العملاء تعرف السيرفر.
+            <span className="spacer" />
+            {key.canLink && <button className="link" onClick={() => v.link().then(() => { toast('تم الربط — اعمل build جديد للبرنامج'); load(); }).catch((e) => toast(e.message, 'error'))}><Link2 size={14} /> اربط تاني</button>}
+          </Notice>
           : <Notice tone="warn" icon={TriangleAlert}>
             {key.builtIn ? 'البرنامج مربوط بمفتاح تاني — المفاتيح اللي تطلعها من هنا مش هتشتغل.' : 'البرنامج لسه مش مربوط بمفتاح — نظام الترخيص مقفول في نسخ العملاء.'}
             <span className="spacer" />
@@ -128,6 +149,29 @@ export function VendorSettings() {
           <button className="btn" onClick={() => v.importBackup().then((n) => { if (n !== null) { toast(`تم الاسترجاع (${n} سجل)`); refresh(); load(); } }).catch((e) => toast(e.message, 'error'))}><Upload />استرجاع</button>
         </div>
         {info && <p className="muted small mono" style={{ marginTop: 12, textAlign: 'right' }}>{info.dataPath}</p>}
+      </Panel>
+      <Panel title="سيرفر التراخيص" meta="لإيقاف وتجديد العملاء أونلاين"
+        actions={<button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(serverSql).then(() => toast('تم نسخ كود SQL'))}><Copy />نسخ كود الإعداد</button>}>
+        {srv && (
+          <>
+            <ol className="help" style={{ marginBottom: 12 }}>
+              <li>اعمل مشروع Supabase مجاني <b>باسمك انت</b> (مش بتاع عميل).</li>
+              <li>SQL Editor ← الصق كود الإعداد ← Run.</li>
+              <li>Authentication ← اقفل "Allow new users to sign up"، وضيف يوزر ليك انت بس.</li>
+              <li>اكتب البيانات هنا واضغط حفظ، وبعدين "اربط البرنامج" تحت.</li>
+            </ol>
+            <div className="form-grid">
+              <Field label="Project URL" span={2}><input dir="ltr" placeholder="https://xxxx.supabase.co" value={srv.url} onChange={(e) => setSrv({ ...srv, url: e.target.value })} /></Field>
+              <Field label="anon public key" span={2}><input dir="ltr" value={srv.anonKey} onChange={(e) => setSrv({ ...srv, anonKey: e.target.value })} /></Field>
+              <Field label="إيميلك"><input dir="ltr" value={srv.email} onChange={(e) => setSrv({ ...srv, email: e.target.value })} /></Field>
+              <Field label="كلمة المرور" hint={srv.hasPassword ? 'محفوظة' : null}><input type="password" dir="ltr" value={srvPass} onChange={(e) => setSrvPass(e.target.value)} /></Field>
+            </div>
+            <div className="row" style={{ marginTop: 12 }}>
+              <button className="btn btn-primary" disabled={busy} onClick={saveServer}><Cloud />حفظ واختبار الاتصال</button>
+              <button className="btn" disabled={busy || !srv.url} onClick={pushAll}><RefreshCw />رفع كل العملاء</button>
+            </div>
+          </>
+        )}
       </Panel>
       <Panel title="رسالة الواتساب" meta="{name} {venue} {until} {key}">
         <textarea rows={6} value={tpl ?? defaultTpl} onChange={(e) => setTpl(e.target.value)} />

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Copy, KeyRound, MessageCircle, Pencil, Plus, RefreshCw, Search, ShoppingBag, Trash2, Users } from 'lucide-react';
+import { Ban, CircleCheck, Cloud, CloudOff, Copy, FileDown, KeyRound, MessageCircle, Pencil, Play, Plus, RefreshCw, Search, ShoppingBag, Trash2, Users } from 'lucide-react';
 import { v } from '../vapi.js';
 import { useRows, useV, statusOf, remainingLabel, daysLeft } from '../state.jsx';
 import { latin, ltr, money, num, today } from '../../lib/format.js';
@@ -39,6 +39,7 @@ export function KeyModal({ result, customer, onClose }) {
     <Modal title="مفتاح الترخيص" sub={`${customer.name}${customer.venue ? ` — ${customer.venue}` : ''}`} onClose={onClose} footer={(
       <>
         <span className="spacer" />
+        <button className="btn" onClick={() => v.saveKeyFile({ key: result.key, name: customer.venue || customer.name }).then((p) => p && toast('تم حفظ ملف المفتاح')).catch((e) => toast(e.message, 'error'))}><FileDown />حفظ كملف</button>
         <button className="btn" onClick={() => copy(msg, 'تم نسخ الرسالة كاملة')}><Copy />نسخ الرسالة</button>
         {customer.phone && <a className="btn btn-primary" href={waLink(customer.phone, msg)} target="_blank" rel="noreferrer"><MessageCircle />إرسال واتساب</a>}
       </>
@@ -46,6 +47,8 @@ export function KeyModal({ result, customer, onClose }) {
       <Notice tone="info">
         {customer.type === 'perpetual' ? 'ترخيص دائم' : `ساري لحد ${ltr(customer.expires_at)}`} — العميل يلصقه في: الإعدادات ← الترخيص.
       </Notice>
+      {result.online?.pushed && <Notice tone="info" icon={Cloud}>اتبعت للسيرفر — لو جهاز العميل متصل بالنت هيتجدد لوحده من غير ما يلصق حاجة.</Notice>}
+      {result.online && !result.online.pushed && result.online.reason !== 'no-server' && <Notice tone="warn" icon={CloudOff}>مااتبعتش للسيرفر ({result.online.reason}) — ابعت المفتاح للعميل أو جرّب "رفع الكل" من الإعدادات.</Notice>}
       <div className="key-box">
         <textarea readOnly dir="ltr" className="mono" rows={6} value={result.key} onFocus={(e) => e.target.select()} />
         <button className="btn btn-sm" onClick={() => copy(result.key, 'تم نسخ المفتاح')}><Copy />نسخ المفتاح</button>
@@ -142,7 +145,12 @@ export function CustomerForm({ initial, onClose }) {
             options={plans.map((p) => ({ value: p.id, label: `${p.name} — ${num(p.price)}${p.type === 'subscription' ? ' / شهر' : ''}` }))} />
         </Field>
         <Field label="السعر المتفق عليه" hint="لو مختلف عن سعر الباقة"><MoneyInput value={f.price} onChange={(x) => set('price', x)} /></Field>
-        <Field label="ملاحظات" span={2}><input value={f.notes} onChange={(e) => set('notes', e.target.value)} /></Field>
+        <Field label="لازم جهازه يتصل بالنت كل" hint="لو ماتصلش في المدة دي البرنامج يقف على العرض لحد ما يتصل — ده اللي بيقفل ثغرة تغيير التاريخ">
+          <Select value={f.offline_days ?? ''} onChange={(x) => set('offline_days', x === '' ? undefined : Number(x))} options={[
+            { value: '', label: 'الافتراضي (14 يوم للاشتراك، بدون للشراء)' }, { value: 7, label: '7 أيام' }, { value: 14, label: '14 يوم' }, { value: 30, label: '30 يوم' }, { value: 0, label: 'بدون (مش لازم نت أبداً)' },
+          ]} />
+        </Field>
+        <Field label="ملاحظات"><input value={f.notes} onChange={(e) => set('notes', e.target.value)} /></Field>
       </div>
     </Modal>
   );
@@ -158,7 +166,17 @@ export function CustomerDetail({ customer: c, onClose }) {
   const [edit, setEdit] = useState(false);
   const [keyResult, setKeyResult] = useState(null);
   const [confirm, setConfirm] = useState(false);
+  const [suspendAsk, setSuspendAsk] = useState(false);
+  const [reason, setReason] = useState('');
   const s = statusOf(c);
+  const setSuspended = async (on) => {
+    try {
+      const r = await v.suspend({ customer_id: c.id, suspended: on, reason });
+      refresh(); setSuspendAsk(false);
+      toast(r.online.pushed ? (on ? 'تم الإيقاف — هيتقفل عند العميل أول ما جهازه يتصل بالنت' : 'تم التشغيل — هيرجع يشتغل عند العميل أول ما يتصل بالنت')
+        : `اتسجل عندك بس مااتبعتش للسيرفر: ${r.online.reason === 'no-server' ? 'اضبط سيرفر التراخيص من الإعدادات' : r.online.reason}`, r.online.pushed ? 'success' : 'error');
+    } catch (e) { toast(e.message, 'error'); }
+  };
   const total = payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
   const reissue = async () => { try { setKeyResult(await v.issue(c.id)); refresh(); } catch (e) { toast(e.message, 'error'); } };
   const KIND = { subscription: 'اشتراك', purchase: 'شراء نهائي', support: 'دعم' };
@@ -168,6 +186,9 @@ export function CustomerDetail({ customer: c, onClose }) {
       <Modal wide title={c.name} sub={[c.venue, c.city].filter(Boolean).join(' — ')} onClose={onClose} footer={(
         <>
           <button className="btn btn-danger-quiet" onClick={() => setConfirm(true)}><Trash2 />حذف</button>
+          {c.status === 'suspended'
+            ? <button className="btn" onClick={() => setSuspended(false)}><Play />تشغيل تاني</button>
+            : <button className="btn btn-danger-quiet" onClick={() => setSuspendAsk(true)}><Ban />إيقاف المكان</button>}
           <span className="spacer" />
           <button className="btn" onClick={() => setEdit(true)}><Pencil />تعديل</button>
           <button className="btn" onClick={reissue} disabled={c.type === 'subscription' && !c.expires_at}><KeyRound />مفتاح بنفس المدة</button>
@@ -187,6 +208,10 @@ export function CustomerDetail({ customer: c, onClose }) {
             <dt>التليفون</dt><dd className="mono">{c.phone || '—'}</dd>
             <dt>إجمالي اللي دفعه</dt><dd className="strong">{money(total)}</dd>
             {c.notes && (<><dt>ملاحظات</dt><dd>{c.notes}</dd></>)}
+            <dt>السيرفر</dt>
+            <dd>{c.push_error ? <span className="text-danger"><CloudOff size={14} /> {c.push_error}</span>
+              : c.pushed_at ? <span className="muted"><CircleCheck size={14} /> متزامن</span> : <span className="muted">لم يُرفع</span>}</dd>
+            {c.status === 'suspended' && c.suspend_reason && (<><dt>سبب الإيقاف</dt><dd className="text-danger">{c.suspend_reason}</dd></>)}
           </dl>
         </div>
         <div className="cols-2 equal" style={{ marginTop: 16 }}>
@@ -216,6 +241,14 @@ export function CustomerDetail({ customer: c, onClose }) {
           </div>
         </div>
       </Modal>
+      {suspendAsk && (
+        <Modal title={`إيقاف ${c.venue || c.name}`} onClose={() => setSuspendAsk(false)} footer={(
+          <><span className="spacer" /><button className="btn" onClick={() => setSuspendAsk(false)}>إلغاء</button><button className="btn btn-danger" onClick={() => setSuspended(true)}><Ban />إيقاف</button></>
+        )}>
+          <p style={{ marginBottom: 12 }}>البرنامج عند العميل هيبقى <b>للعرض فقط</b> أول ما جهازه يتصل بالنت. البيانات بتاعته مش بتتمسح، وتقدر ترجّعه في أي وقت.</p>
+          <Field label="السبب (بيظهر للعميل)"><input autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="مثلاً: متأخرات" /></Field>
+        </Modal>
+      )}
       {renew && <RenewModal customer={c} onClose={() => setRenew(false)} onDone={(r) => { setRenew(false); setKeyResult(r); }} />}
       {edit && <CustomerForm initial={c} onClose={() => setEdit(false)} />}
       {keyResult && <KeyModal result={keyResult} customer={keyResult.customer || c} onClose={() => setKeyResult(null)} />}

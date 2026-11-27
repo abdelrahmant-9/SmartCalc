@@ -591,3 +591,5 @@ textarea.mono { font-size: 12px; line-height: 1.5; word-break: break-all; white-
 .cust-head .license-state { flex-direction: column; align-items: flex-start; }
 a.btn { text-decoration: none; }
 td.clickable { cursor: pointer; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
