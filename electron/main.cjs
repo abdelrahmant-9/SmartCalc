@@ -64,6 +64,10 @@ function registerIpc() {
   handle('db:remove', (tbl, id) => { const r = service.remove(tbl, id); sync.nudge(); return r; });
   handle('users:save', (data) => { const r = service.saveUser(data); sync.nudge(); return r; });
   handle('auth:catalogue', () => service.catalogue());
+  handle('license:status', () => service.license());
+  handle('license:activate', (key) => { const r = service.activateLicense(key); sync.nudge(); return r; });
+  handle('license:remove', () => { const r = service.removeLicense(); sync.nudge(); return r; });
+  handle('app:branding', () => service.branding());
   handle('auth:updateProfile', (d) => { const r = service.updateProfile(d); sync.nudge(); return r; });
   handle('audit:list', (opts) => service.activity(opts));
 

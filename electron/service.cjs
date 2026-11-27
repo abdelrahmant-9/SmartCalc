@@ -1,6 +1,8 @@
 // Business rules on top of the store: seeding, login, roles and permissions.
 const crypto = require('node:crypto');
 const P = require('./permissions.cjs');
+const L = require('./license.cjs');
+const BUILT_IN_PUBLIC_KEY = require('./license-public.cjs');
 
 const CATALOG_TABLES = ['packages', 'extras', 'ticket_types', 'cafe_items'];
 
@@ -48,10 +50,57 @@ function localToday() {
 }
 
 class Service {
-  constructor(store) {
+  constructor(store, { publicKey = BUILT_IN_PUBLIC_KEY, now = () => Date.now() } = {}) {
     this.store = store;
     this.user = null;
+    this.publicKey = publicKey;
+    this.now = now;
+    if (!store.getKV('first_run')) store.setKV('first_run', now());
     this.seed();
+  }
+
+  // ---------- license ----------
+  licenseKey() {
+    // Synced with the other devices of the venue; the local copy covers a device that has not synced yet.
+    return this.store.get('settings', 'license')?.key || this.store.getKV('license_key') || null;
+  }
+
+  license() {
+    // Never let time run backwards: turning the computer clock back does not extend a subscription.
+    const last = this.store.getKV('last_seen', 0);
+    const now = Math.max(this.now(), last);
+    if (now > last + 60000) this.store.setKV('last_seen', now);
+    const st = L.evaluate({ publicKey: this.publicKey, key: this.licenseKey(), firstRun: this.store.getKV('first_run'), now });
+    return { ...st, trial_days: L.TRIAL_DAYS, grace_days: L.GRACE_DAYS, device_id: this.store.getKV('device_id') || null };
+  }
+
+  assertWritable() {
+    const l = this.license();
+    if (l.writable) return;
+    const msg = {
+      trial_ended: 'انتهت الفترة التجريبية — فعّل الترخيص من الإعدادات ← الترخيص',
+      expired: 'الاشتراك منتهي — البرنامج للعرض فقط لحد ما يتجدد',
+      invalid: 'مفتاح الترخيص غير صالح — تواصل مع الدعم الفني',
+    }[l.state] || 'البرنامج للعرض فقط';
+    throw new Error(msg);
+  }
+
+  activateLicense(key) {
+    const u = this.requireAny(['settings.general', 'dev.tools']);
+    if (!this.publicKey) throw new Error('نظام الترخيص غير مفعّل في النسخة دي');
+    const p = L.verifyLicense(key, this.publicKey);
+    const clean = String(key).replace(/\s+/g, '');
+    this.store.setKV('license_key', clean);
+    // Written directly: renewing must work even while the app is read-only.
+    this.store.put('settings', { id: 'license', key: clean, customer: p.customer, venue: p.venue }, u.id);
+    return this.license();
+  }
+
+  removeLicense() {
+    const u = this.require('dev.tools');
+    this.store.setKV('license_key', null);
+    if (this.store.get('settings', 'license')) this.store.remove('settings', 'license', u.id);
+    return this.license();
   }
 
   seed() {
@@ -91,6 +140,12 @@ class Service {
       ['ليمون نعناع', 'مشروبات باردة', 50], ['مياه معدنية', 'مشروبات باردة', 15], ['كانز', 'مشروبات باردة', 30],
     ];
     items.forEach(([name, category, price], i) => s.seed('cafe_items', { id: `seed-cafe-${i + 1}`, name, category, price, active: true }));
+  }
+
+  // Shown on the login screen, so it needs no login.
+  branding() {
+    const s = this.settings();
+    return { name: s.venueName || 'Heaven', tagline: s.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY', logo: s.venueLogo || null };
   }
 
   settings() {
@@ -194,13 +249,14 @@ class Service {
 
   put(tbl, obj) {
     const u = this.requireUser();
+    this.assertWritable();
     const existing = obj.id ? this.store.get(tbl, obj.id) : null;
     const has = (p) => this.permsOf(u).has(p);
     const need = (p) => { if (!has(p)) throw new Error(`ليس لديك صلاحية: ${LABEL[p] || p}`); };
 
     if (tbl === 'users') throw new Error('استخدم شاشة المستخدمين');
     if (tbl === 'roles') return this.saveRole(obj);
-    if (tbl === 'settings') need('settings.general');
+    if (tbl === 'settings') { need('settings.general'); if (obj.id === 'license') throw new Error('فعّل الترخيص من شاشة الترخيص'); }
     if (CATALOG_TABLES.includes(tbl)) need('settings.catalog');
 
     if (tbl === 'bookings') {
@@ -227,6 +283,7 @@ class Service {
 
   remove(tbl, id) {
     const u = this.requireUser();
+    this.assertWritable();
     const perm = {
       bookings: 'bookings.delete', payments: 'payments.delete', ticket_sales: 'tickets.delete', cafe_orders: 'cafe.delete',
       transactions: 'finance.delete', users: 'settings.users', roles: 'settings.roles',
@@ -328,7 +385,7 @@ class Service {
 
   summarize(tbl, d) {
     switch (tbl) {
-      case 'bookings': return `${d.bride_name || ''}${d.date ? ` — ${d.date}` : ''}`;
+      case 'bookings': return `${d.bride_name || ''}${d.date ? ` — \u2066${d.date}\u2069` : ''}`;
       case 'payments': return `${Number(d.amount) || 0} — ${d.method || ''}`;
       case 'ticket_sales': return `${(d.items || []).reduce((a, i) => a + (Number(i.qty) || 0), 0)} تذكرة — ${Number(d.total) || 0}`;
       case 'cafe_orders': return `طلب #${d.number || ''} — ${Number(d.total) || 0}`;

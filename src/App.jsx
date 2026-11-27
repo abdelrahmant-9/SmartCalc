@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarHeart, Coffee, LayoutDashboard, LogOut, Settings, Ticket, UserRound, Wallet } from 'lucide-react';
 import { useApp } from './lib/context.jsx';
 import { api } from './lib/api.js';
+import { ltr } from './lib/format.js';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Bookings from './pages/Bookings.jsx';
@@ -40,7 +41,7 @@ const NAV = [
 const PAGES = { dashboard: Dashboard, bookings: Bookings, tickets: Tickets, cafe: Cafe, finance: Finance, settings: Settings_, account: Account };
 
 export default function App() {
-  const { user, ready, logout, canAny } = useApp();
+  const { user, ready, logout, canAny, can, license, branding } = useApp();
   const [page, setPage] = useState('dashboard');
   const [demo, setDemo] = useState(false);
   useEffect(() => { api.appInfo().then((i) => { setDemo(!!i.demo); if (i.demo) document.title = 'Heaven Manager — نسخة تجريبية'; }).catch(() => {}); }, []);
@@ -66,12 +67,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [user, flat]);
 
-  if (!ready) return <div className="splash"><img src={logo} alt="" /></div>;
+  const brandLogo = branding?.logo || logo;
+  if (!ready) return <div className="splash"><img src={brandLogo} alt="" /></div>;
   if (!user) return <Login />;
 
   const current = flat.some((n) => n.id === page) ? page : 'dashboard';
   const Page = PAGES[current];
-  const banner = demo ? (
+  const openLicense = () => { sessionStorage.setItem('settingsTab', 'license'); setPage('settings'); };
+  const canLicense = can('settings.general') || can('dev.tools');
+  const licenseBanner = licenseNotice(license, canLicense ? openLicense : null);
+  const banner = licenseBanner && current !== 'settings' ? licenseBanner : demo ? (
     <Notice tone="info">نسخة تجريبية ببيانات وهمية — بياناتك الحقيقية في البرنامج العادي ولم تتأثر.</Notice>
   ) : user.must_change_password && current !== 'account' ? (
     <Notice tone="warn">
@@ -86,9 +91,9 @@ export default function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <img src={logo} alt="" />
+          <img src={brandLogo} alt="" />
           <div>
-            <div className="brand-name">HEAVEN</div>
+            <div className="brand-name">{(branding?.name || 'Heaven').toUpperCase()}</div>
             <div className="brand-sub">{user.role_name}</div>
           </div>
         </div>
@@ -127,4 +132,14 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+function licenseNotice(l, onOpen) {
+  if (!l || ['off', 'perpetual', 'active'].includes(l.state)) return null;
+  const action = onOpen && <><span className="spacer" /><button className="link" onClick={onOpen}>{l.state === 'trial' ? 'تفعيل الترخيص' : 'تجديد الاشتراك'}</button></>;
+  if (l.state === 'trial') return <Notice tone="info">نسخة تجريبية — باقي {l.days} يوم.{action}</Notice>;
+  if (l.state === 'expiring') return <Notice tone="warn">الاشتراك بينتهي {l.days === 0 ? 'النهارده' : `بعد ${l.days} يوم`} ({ltr(l.expires)}).{action}</Notice>;
+  if (l.state === 'grace') return <Notice tone="danger">الاشتراك انتهى. باقي {l.grace_left} يوم والبرنامج يبقى للعرض فقط.{action}</Notice>;
+  const why = { trial_ended: 'الفترة التجريبية خلصت', expired: 'الاشتراك منتهي', invalid: 'مفتاح الترخيص غير صالح' }[l.state] || 'غير مرخص';
+  return <Notice tone="danger">{why} — البرنامج للعرض فقط ومينفعش تسجيل عمليات جديدة.{action}</Notice>;
 }

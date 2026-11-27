@@ -5,10 +5,12 @@ import { useAction, useApp, useData } from '../lib/context.jsx';
 import { dateTime, durationLabel, latin, num } from '../lib/format.js';
 import schemaSql from '../../supabase/schema.sql?raw';
 import { printReceipt } from '../lib/print.js';
+import defaultLogo from '../assets/logo.png';
 import Combobox from '../components/Combobox.jsx';
 import Select from '../components/Select.jsx';
 import { Activity, Roles, Users } from './settings/Access.jsx';
 import Developer from './settings/Developer.jsx';
+import License from './settings/License.jsx';
 import { Confirm, Empty, Field, Modal, MoneyInput, Page, Panel, Switch, Tabs } from '../components/ui.jsx';
 
 const TABS = [
@@ -22,6 +24,7 @@ const TABS = [
   { id: 'activity', label: 'سجل النشاط', perm: 'audit.view' },
   { id: 'sync', label: 'المزامنة', perm: 'settings.sync' },
   { id: 'backup', label: 'النسخ الاحتياطي', perm: 'settings.backup' },
+  { id: 'license', label: 'الترخيص', perm: 'settings.general' },
   { id: 'developer', label: 'المطور', perm: 'dev.tools' },
 ];
 
@@ -29,8 +32,8 @@ const PRICING = { fixed: 'سعر ثابت', hourly: 'بالساعة', custom: '�
 
 export default function Settings() {
   const { can } = useApp();
-  const tabs = TABS.filter((t) => can(t.perm));
-  const [picked, setTab] = useState(tabs[0]?.id);
+  const tabs = TABS.filter((t) => can(t.perm) || (t.id === 'license' && can('dev.tools')));
+  const [picked, setTab] = useState(() => { const t = sessionStorage.getItem('settingsTab'); sessionStorage.removeItem('settingsTab'); return t || tabs[0]?.id; });
   const tab = tabs.some((t) => t.id === picked) ? picked : tabs[0]?.id;
   return (
     <Page title="الإعدادات" tabs={<Tabs tabs={tabs} value={tab} onChange={setTab} />}>
@@ -60,6 +63,7 @@ export default function Settings() {
       {tab === 'users' && <Users />}
       {tab === 'roles' && <Roles />}
       {tab === 'activity' && <Activity />}
+      {tab === 'license' && <License />}
       {tab === 'developer' && <Developer />}
       {tab === 'sync' && <SyncSettings />}
       {tab === 'backup' && <Backup />}
@@ -77,6 +81,18 @@ function General() {
   const listField = (k) => (f[k] || []).join('، ');
   const parseList = (v) => v.split(/[,،\n]/).map((x) => x.trim()).filter(Boolean);
   const save = () => act(() => api.put('settings', { ...f, id: 'app' }), 'تم حفظ الإعدادات').catch(() => {});
+  // Logos are stored inside the settings record (and synced), so shrink them to a small square first.
+  const pickLogo = (file) => {
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      const size = 256; const c = document.createElement('canvas'); c.width = size; c.height = size;
+      const ctx = c.getContext('2d'); const s = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      set('venueLogo', c.toDataURL('image/png')); URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  };
 
   return (
     <>
@@ -85,6 +101,14 @@ function General() {
           <div className="form-grid">
             <Field label="اسم المكان"><input value={f.venueName} onChange={(e) => set('venueName', e.target.value)} /></Field>
             <Field label="العملة"><input value={f.currency} onChange={(e) => set('currency', e.target.value)} /></Field>
+            <Field label="السطر تحت الاسم" hint="بيظهر في شاشة الدخول والإيصال" span={2}><input dir="auto" value={f.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY'} onChange={(e) => set('venueTagline', e.target.value)} /></Field>
+            <Field label="اللوجو" span={2}>
+              <div className="logo-pick">
+                <img src={f.venueLogo || defaultLogo} alt="" />
+                <label className="btn btn-sm">تغيير اللوجو<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => pickLogo(e.target.files?.[0])} /></label>
+                {f.venueLogo && <button type="button" className="btn btn-sm btn-quiet" onClick={() => set('venueLogo', null)}>رجوع للافتراضي</button>}
+              </div>
+            </Field>
           </div>
         </Panel>
         <Panel title="الحجوزات في نفس التوقيت">

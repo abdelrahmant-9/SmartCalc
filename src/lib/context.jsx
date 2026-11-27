@@ -8,6 +8,8 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
   const [settings, setSettings] = useState(null);
+  const [license, setLicense] = useState(null);
+  const [branding, setBranding] = useState({ name: 'Heaven', tagline: '', logo: null });
   const [version, setVersion] = useState(0);
   const [syncStatus, setSyncStatus] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -24,10 +26,19 @@ export function AppProvider({ children }) {
   useEffect(() => {
     api.me().then(setUser).catch(() => {}).finally(() => setReady(true));
     api.syncStatus().then(setSyncStatus).catch(() => {});
+    // The license can change with the clock, so look again every few minutes.
+    const check = () => api.license().then(setLicense).catch(() => {});
+    check();
+    const timer = setInterval(check, 5 * 60000);
     const off1 = api.on('data:changed', () => setVersion((v) => v + 1));
     const off2 = api.on('sync:status', setSyncStatus);
-    return () => { off1(); off2(); };
+    return () => { off1(); off2(); clearInterval(timer); };
   }, []);
+
+  useEffect(() => {
+    api.branding().then(setBranding).catch(() => {});
+    api.license().then(setLicense).catch(() => {});
+  }, [version]);
 
   useEffect(() => {
     if (!user) return;
@@ -43,6 +54,7 @@ export function AppProvider({ children }) {
   const value = {
     user, setUser, ready, settings: settings || {}, version, refresh, toast,
     syncStatus, setSyncStatus, login, logout,
+    license, setLicense, branding, readOnly: license ? !license.writable : false,
     can: (perm) => !!user?.permissions?.includes(perm),
     canAny: (...perms) => perms.some((p) => user?.permissions?.includes(p)),
     currency: settings?.currency || 'ج.م',

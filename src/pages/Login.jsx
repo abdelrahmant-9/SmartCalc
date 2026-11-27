@@ -4,7 +4,7 @@ import { Notice } from '../components/ui.jsx';
 import logo from '../assets/logo.png';
 
 export default function Login() {
-  const { login } = useApp();
+  const { login, branding } = useApp();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -36,9 +36,9 @@ export default function Login() {
         </form>
       </div>
       <div className="login-art" aria-hidden="true">
-        <img src={logo} alt="" />
-        <div className="word">HEAVEN</div>
-        <div className="tagline">Lens &amp; Leaves · Capturing Beauty</div>
+        <img src={branding?.logo || logo} alt="" />
+        <div className="word">{(branding?.name || 'Heaven').toUpperCase()}</div>
+        {branding?.tagline && <div className="tagline">{branding.tagline}</div>}
       </div>
     </div>
   );

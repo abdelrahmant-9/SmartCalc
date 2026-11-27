@@ -82,9 +82,9 @@ export function printReceipt(r) {
     .foot .tiny { font-size: .72em; color: #777; margin-top: 1mm; direction: ltr; }
   </style></head><body>
   <div class="head">
-    <img class="logo" src="${abs(logo)}" alt="">
+    <img class="logo" src="${s.venueLogo || abs(logo)}" alt="">
     <div class="brand">${esc((s.venueName || 'Heaven').toUpperCase())}</div>
-    <div class="tag">LENS &amp; LEAVES · CAPTURING BEAUTY</div>
+    ${(s.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY') ? `<div class="tag">${esc(s.venueTagline ?? 'LENS & LEAVES · CAPTURING BEAUTY')}</div>` : ''}
     ${contact.length ? `<div class="contact">${contact.map((c) => `<span class="${/^[\d+\s-]+$/.test(c) ? 'n' : ''}">${esc(c)}</span>`).join(' · ')}</div>` : ''}
   </div>
   <div class="doc"><b>${esc(r.title)}</b>${r.number ? `<span>رقم <span class="n">${esc(r.number)}</span></span>` : ''}</div>

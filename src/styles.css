@@ -568,3 +568,26 @@ button.agenda-item:hover { background: #fcfbfa; }
   .perm-groups, .dev-actions { grid-template-columns: 1fr 1fr; }
   .profile-hero { flex-wrap: wrap; }
 }
+
+/* ---------- license & branding ---------- */
+.license-state { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: var(--r); border: 1px solid var(--line); background: var(--sunken); }
+.license-state svg { width: 28px; height: 28px; flex-shrink: 0; }
+.license-state strong { display: block; font-size: 16px; }
+.license-state span { color: var(--ink-2); font-size: 13px; }
+.license-state.tone-ok { background: var(--ok-tint); border-color: #cbe7d8; } .license-state.tone-ok svg { color: var(--ok); }
+.license-state.tone-warn { background: var(--warn-tint); border-color: #f2dcb4; } .license-state.tone-warn svg { color: var(--warn); }
+.license-state.tone-danger { background: var(--danger-tint); border-color: #f3cbc6; } .license-state.tone-danger svg { color: var(--danger); }
+.license-state.tone-info { background: var(--brand-tint); border-color: var(--brand-line); } .license-state.tone-info svg { color: var(--brand-ink); }
+.license-state.tone-muted svg { color: var(--muted); }
+.logo-pick { display: flex; align-items: center; gap: 12px; }
+.logo-pick img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line-strong); }
+textarea.mono { font-size: 12px; line-height: 1.5; word-break: break-all; white-space: pre-wrap; }
+
+/* ---------- vendor ---------- */
+.key-box { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.key-box textarea { width: 100%; }
+.renew-preview { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--r); background: var(--brand-tint); color: var(--brand); }
+.cust-head { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+.cust-head .license-state { flex-direction: column; align-items: flex-start; }
+a.btn { text-decoration: none; }
+td.clickable { cursor: pointer; }
