@@ -1,12 +1,17 @@
 {
-  "productName": "Heaven Manager",
-  "shortName": "Heaven",
-  "vendorName": "Heaven Vendor",
-  "appId": "com.heaven.manager",
-  "description": "نظام إدارة الحجوزات والكافيه والتذاكر والحسابات",
+  "productName": "Rawaq",
+  "shortName": "Rawaq",
+  "vendorName": "Rawaq Admin",
+  "appId": "com.rawaq.app",
+  "description": "رواق — نظام إدارة القاعات واللوكيشنز: الحجوزات، الكافيه، التذاكر، والحسابات",
   "company": "",
   "supportPhone": "",
   "website": "",
-  "previousNames": ["Heaven Manager"],
-  "previousVendorNames": ["Heaven Vendor"]
+  "previousNames": [
+    "Heaven Manager"
+  ],
+  "previousVendorNames": [
+    "Heaven Vendor"
+  ],
+  "nameAr": "رواق"
 }

@@ -123,7 +123,7 @@ export function VendorSettings() {
     try { const r = await v.pushAll(); refresh(); toast(r.fail ? `اترفع ${r.ok} وفشل ${r.fail}: ${r.error}` : `اترفع ${r.ok} عميل`, r.fail ? 'error' : 'success'); } catch (e) { toast(e.message, 'error'); }
     setBusy(false);
   };
-  const defaultTpl = `أهلاً {name} 👋\nده مفتاح تفعيل ${brand.productName} لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.`;
+  const defaultTpl = `أهلاً {name} 👋\nده مفتاح تفعيل ${brand.nameAr || brand.productName} لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.`;
 
   return (
     <Page title="الإعدادات">

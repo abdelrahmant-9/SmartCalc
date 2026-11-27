@@ -8,7 +8,7 @@ import { brand } from '../../lib/brand.js';
 import { Confirm, Empty, Field, Modal, MoneyInput, Notice, Page, Panel, Segmented } from '../../components/ui.jsx';
 
 const METHODS = ['كاش', 'فودافون كاش', 'إنستاباي', 'تحويل بنكي'];
-const DEFAULT_MSG = `أهلاً {name} 👋\nده مفتاح تفعيل ${brand.productName} لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.`;
+const DEFAULT_MSG = `أهلاً {name} 👋\nده مفتاح تفعيل ${brand.nameAr || brand.productName} لـ {venue}{until}:\n\n{key}\n\nمن البرنامج: الإعدادات ← الترخيص ← الصق المفتاح ← تفعيل.`;
 
 export function waLink(phone, text) {
   const p = latin(phone || '').replace(/\D/g, '');

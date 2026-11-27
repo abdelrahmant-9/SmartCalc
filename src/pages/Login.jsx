@@ -32,7 +32,7 @@ export default function Login() {
           </label>
           {error && <Notice tone="danger">{error}</Notice>}
           <button className="btn btn-primary btn-lg btn-block" disabled={busy || !username || !password}>دخول</button>
-          <p className="login-foot">{brand.productName}{brand.company ? ` — ${brand.company}` : ''}</p>
+          <p className="login-foot">{brand.nameAr ? `${brand.nameAr} · ` : ''}{brand.productName}{brand.company ? ` — ${brand.company}` : ''}</p>
         </form>
       </div>
       <div className="login-art" aria-hidden="true">

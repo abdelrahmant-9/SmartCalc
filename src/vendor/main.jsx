@@ -29,7 +29,7 @@ function VendorApp() {
       <aside className="sidebar">
         <div className="brand">
           <img src={logo} alt="" />
-          <div><div className="brand-name">{brand.shortName.toUpperCase()}</div><div className="brand-sub">إدارة العملاء</div></div>
+          <div><div className="brand-name">{brand.shortName.toUpperCase()}</div><div className="brand-sub">{brand.nameAr ? `${brand.nameAr} · ` : ''}إدارة العملاء</div></div>
         </div>
         <div className="nav-group">
           {NAV.map((n) => (

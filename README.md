@@ -1,6 +1,6 @@
-# Heaven Manager
+# رواق — Rawaq
 
-برنامج سطح مكتب (Windows و Mac) لإدارة **Heaven** — لوكيشن تصوير العرائس:
+برنامج سطح مكتب (Windows و Mac) لإدارة **القاعات واللوكيشنز** (أول عميل: Heaven — لوكيشن تصوير العرائس):
 حجوزات العرائس، تذاكر الدخول، الكافيه، وكل الحسابات الداخلة والطالعة.
 
 - يشتغل **أوفلاين** بالكامل — البيانات محفوظة على الجهاز.
@@ -38,7 +38,7 @@
 
 > **على الماك:** لأن البرنامج غير موقّع من Apple، أول مرة اعمل كليك يمين على البرنامج ← Open.
 > لو ظهرت رسالة إن البرنامج "تالف"، افتح Terminal واكتب:
-> `xattr -cr "/Applications/Heaven Manager.app"`
+> `xattr -cr "/Applications/Rawaq.app"`
 
 ## تفعيل المزامنة الأونلاين (مرة واحدة)
 
@@ -174,5 +174,5 @@ test/                 اختبارات
 ```
 
 البيانات المحلية محفوظة في:
-- Windows: `%APPDATA%\Heaven Manager\heaven.db`
-- Mac: `~/Library/Application Support/Heaven Manager/heaven.db`
+- Windows: `%APPDATA%\Rawaq\heaven.db`
+- Mac: `~/Library/Application Support/Rawaq/heaven.db`
