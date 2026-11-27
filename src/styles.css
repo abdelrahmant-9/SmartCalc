@@ -1,10 +1,16 @@
 /* Heaven Manager — design tokens */
 :root {
-  --brand: #4b2c50;
-  --brand-hover: #3b2240;
-  --brand-ink: #7d4887;
-  --brand-tint: #f5eef6;
-  --brand-line: #e4d6e7;
+  /* Brand colors — overridden at start-up from brand.json "colors" (src/lib/brand.js). */
+  --brand: #0F4C49;
+  --brand-hover: #0A3836;
+  --brand-ink: #17766F;
+  --brand-tint: #E7F2F0;
+  --brand-line: #C6E0DB;
+  --gold: #E2BE5A;
+  --gold-ink: #A8821C;
+  --chart: #16958A;
+  --login-from: #1B6560;
+  --login-to: #082827;
 
   --bg: #faf8f6;
   --side: #f3efeb;
@@ -73,7 +79,7 @@ select {
 select:disabled { cursor: default; }
 input::placeholder, textarea::placeholder { color: var(--faint); }
 input:hover, select:hover, textarea:hover { border-color: var(--faint); }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand-ink); box-shadow: 0 0 0 3px rgba(125, 72, 135, .14); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-ink) 16%, transparent); }
 input:disabled, select:disabled { background: var(--sunken); color: var(--muted); }
 input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--brand); padding: 0; }
 /* Native number spinners look different on every OS; amounts are typed, counts use the − / + buttons. */
@@ -330,7 +336,7 @@ input[type=number] { -moz-appearance: textfield; }
 .login-form h1 { font-size: 22px; }
 .login-form .sub { color: var(--muted); margin-top: -10px; }
 .login-art {
-  background: radial-gradient(120% 90% at 30% 20%, #6a4071 0%, #4b2c50 45%, #2e1a32 100%);
+  background: radial-gradient(120% 90% at 30% 20%, var(--login-from) 0%, var(--brand) 45%, var(--login-to) 100%);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; color: #efe4f0; position: relative; overflow: hidden;
 }
 .login-art::after { content: ''; position: absolute; inset: 18px; border: 1px solid rgba(255,255,255,.12); border-radius: 14px; pointer-events: none; }
@@ -443,7 +449,7 @@ button.agenda-item:hover { background: #fcfbfa; }
 .chart svg { display: block; width: 100%; overflow: visible; direction: ltr; }
 .chart .grid line { stroke: var(--line); stroke-width: 1; }
 .chart .axis text { fill: var(--muted); font-size: 11px; font-family: inherit; }
-.chart .bar { fill: #7d4887; }
+.chart .bar { fill: var(--chart); }
 .chart .bar.dim { opacity: .35; }
 .chart .hit { fill: transparent; cursor: default; }
 .chart-tip { position: absolute; pointer-events: none; background: #221c24; color: #fff; padding: 6px 10px; border-radius: var(--r-sm); font-size: 12.5px; white-space: nowrap; transform: translate(-50%, -100%); box-shadow: var(--shadow-pop); }
@@ -488,7 +494,7 @@ button.agenda-item:hover { background: #fcfbfa; }
   transition: border-color .12s, box-shadow .12s;
 }
 .select:hover:not(:disabled) { border-color: var(--faint); }
-.select:focus-visible, .select.open { outline: none; border-color: var(--brand-ink); box-shadow: 0 0 0 3px rgba(125, 72, 135, .14); }
+.select:focus-visible, .select.open { outline: none; border-color: var(--brand-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-ink) 16%, transparent); }
 .select:disabled { background: var(--sunken); color: var(--muted); cursor: default; }
 .select-value { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .select-value.placeholder { color: var(--faint); }
@@ -593,3 +599,13 @@ a.btn { text-decoration: none; }
 td.clickable { cursor: pointer; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- gold accents (from the logo) ---------- */
+.login-art { color: #EAF3F1; }
+.login-art .word { color: var(--gold); }
+.login-art img { box-shadow: 0 0 0 8px color-mix(in srgb, var(--gold) 18%, transparent); }
+.login-art::after { border-color: color-mix(in srgb, var(--gold) 22%, transparent); }
+.nav-item.active { box-shadow: inset -3px 0 0 var(--gold-ink), 0 1px 2px rgba(31, 26, 33, .05); }
+.tab.active { border-bottom-color: var(--gold-ink); }
+.brand-name { color: var(--brand); }
+.cal-cell.today .cal-num { background: var(--brand); box-shadow: 0 0 0 2px var(--gold); }

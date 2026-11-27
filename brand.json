@@ -13,5 +13,17 @@
   "previousVendorNames": [
     "Heaven Vendor"
   ],
-  "nameAr": "رواق"
+  "nameAr": "رواق",
+  "colors": {
+    "primary": "#0F4C49",
+    "primaryHover": "#0A3836",
+    "ink": "#17766F",
+    "tint": "#E7F2F0",
+    "line": "#C6E0DB",
+    "gold": "#E2BE5A",
+    "goldInk": "#A8821C",
+    "chart": "#16958A",
+    "loginFrom": "#1B6560",
+    "loginTo": "#082827"
+  }
 }
